@@ -21,7 +21,7 @@
 
 //------------------------------------------------------------------------------------
 // Bussiness.
-#define HMI_HV_BUSINESS_NUMBER             2007                // 2001 : Business Number: Calvert line 2.
+#define HMI_HV_BUSINESS_NUMBER             2009                // 2001 : Business Number: Calvert line 2.
 
 #define DIM_SQL_REQUEST                   10        // Table for SQL request interface.
 
@@ -54,13 +54,17 @@ struct SPE_parameter
 // Specific Line measurements.
 struct SPE_measures_Line
 {
-  
 };
 
 //------------------------------------------------------------------------------------
 // Specific section measurements.
 struct SPE_measurement_section
 {
+  double  CONSUMPTION_ELECTRICAL;
+  double  CONSUMPTION_FUEL;
+  double  CONSUMPTION_NITROGEN;
+  double  CONSUMPTION_HYDROGEN;
+  double  AIR_TEMPERATURE_ALL;
 };
 
 //------------------------------------------------------------------------------------
@@ -81,18 +85,14 @@ struct SPE_measures_RTF_zone
 // Specific coil data.
 struct SPE_coils_data
 {
-  //double    maxSpeedPot;
-  //double    minSpeedCoil;
-  //double    minSpeedDFF;
-  //double    offsetTempEE;
-  //double    upperToleranceP13;
-  //double    stripTargetP13;
-  //double    lowerToleranceP13;
-  char    sGiOrGa[DIM_NAMES + 1];
-  bool    isGAElseGi;
-  double  alliationMaxSpeed;
+  char                              combinaisonIdentifier       [DIM_NAMES + 1] ;           // .
+  char                              heatID                      [DIM_NAMES + 1] ;           // .
+  long                              partNumber                                  ;           // .
+  long                              coilCounter                                 ;           // .
+  double                            weight                                      ;           // .
+  double                            tension                                     ;           // .
+  double                            yield                                       ;           // .
 };
-
 
 //------------------------------------------------------------------------------------
 // Specific coil data.
@@ -105,9 +105,23 @@ struct SPE_coils_calcul
 // Specific measurements.
 struct SPE_measures_zones
 {
+  long      COIL_L2_IDENTIFIER;
+  long      COIL_PART_NUMBER;
+  double    STRIP_SAMPLE_POSITION;
+  double    ANALYSIS_CO;
+  double    ANALYSIS_CO2;
+  double    ANALYSIS_H2;
+  double    ANALYSIS_O2;
+  double    ANALYSIS_DP;
+  double    MAX_FLOW;
+  double    MIN_FLOW;
+  double    MAX_HD;
+  double    MIN_HD;
+  double    READY;
+  double    PZH_TEMP;
+  double    SPLIT_RANGE;
+  
   double    h2_rate;
-
-
 };
 
 //------------------------------------------------------------------------------------
@@ -120,6 +134,7 @@ struct SPE_measures
 
   struct SPE_measures_zones   zones[DIM_ZONES];
   //struct SPE_measurement_section  sections[DIM_SECTIONS ];
+  double SPEED_SET_OFFSET;
 };
 
 //------------------------------------------------------------------------------------
@@ -129,7 +144,6 @@ struct SPE_setpoints
   long    maNouvelleConsigne1;              // Use for Mistracking prevention.
   double  maNouvelleConsigne2;
   char    maNouvelleConsigne3[DIM_NAMES];
-
 
 };
 
@@ -153,303 +167,28 @@ struct  SPE_specific_on_live_parameters
 };
 
 //------------------------------------------------------------------------------------
-// Specific GALMA 1 file for JET max rotation speed by QT.
-struct oneQT
+// We store heat cycle .
+struct SPE_CoilHeatCycleTable
 {
-  char    QT[16];
-  double  zoneMaxDemand[3];
+  long internalCode;
+  long heatCycleCode;
 };
-
-struct jetMaxRotationSpeedPerQt
-{
-  struct oneQT    DefaultValues;
-  struct oneQT    QTs          [1000];
-  long            nbQt;
-};
-
-
-
-
-
-
-struct fichbob
-{
-	char      nobob[8+1]; 				  /* Numero de bobine */
-	char	    res3[2];   						/* reserve pour alignement */                        
-	float	    larg;	    					  /* Largeur bande en mm */
-	float	    epais;	    					/* Epaisseur bande en mm */
-	float	    longueur;						  /* Longueur bande en m */
-	float	    posqb_sormain;				/* Position queue de bande/sortie maintien */
-	float	    vmax;    						  /* vitesse max en m/mn */
-	char      typeacier[5+1];			  /* code acier */
-	char	    res1[2];    					/* Reserve pour allignement */
-	float	    tbvischa;     				/* Temp de bande visee chauffe */
-	float	    tbmaxcha;    				  /* Temp bd visee limit sup chauffe */
-	float	    tbmincha;    				  /* Temp bd visee limit inf chauffe */
-	float	    tbvismai;    				  /* Temp de bande visee maintien */
-	float	    tbmaxmai;    				  /* Temp bd visee limit sup maintien */
-	float	    tbminmai;    				  /* Temp bd visee limit inf maintien */
-	float	    tbvisref;    				  /* Temp de bande visee refroidissement rapide */
-	float	    tbmaxref;    				  /* Temp bd visee limit sup refroidissement rapide */
-	float	    tbminref;    				  /* Temp bd visee limit inf refroidissement rapide */
-	float	    rampz1;    					  /* Rampe de refroisissement zone 1 JET */
-	float	    rampz2;    					  /* Rampe de refroisissement zone 2 JET */
-	float	    rampz3;    					  /* Rampe de refroisissement zone 3 JET */
-	float     vMaxLTOP;	    		    /* vitesse maximun théorique supportable par le four */
-	float	    vMaxAlia_Pt_Triple;	  /* Vitesse max d'aliation en point triple, non utilisé */
-	float	    vMaxAlia_Bas_Alu;		  /* Vitesse max d'aliation en bas alu, non utilisé */
-	char	    Produit[3+1];	    	  /* Produit: GIX, GIZ, GAX, GAZ, BIC */
-	char      res2[16];    				  /* Reserve */                                 
-}; 
-
-struct mesures
-{
-	/* LINE --> L-TOP */
-	char 	    nobob[8+1]; 				/* Numero de bobine */  
-	char 	    res8[3];    				/* réserve pour alignement */          
-	float	    trac_dans; 					/* Traction danseur en kg */ 
-	float     trac_chauf_1;			  /* Traction chauffage 1 en kg */
-	float 	  trac_chauf_2;			  /* Traction chauffage 2 en kg */
-	float	    trac_main; 					/* Traction maintien en kg */
-	float	    vitcen;   					/* Vitesse ligne mesuree en m/mn */
-	int       ctrlvit;   					/* controle vitesse par LTOP (0=operateur,1=L-TOP) */
-	float	    vitmaxope;					/* Vitesse maxi operateur en m/mn */
-	float			vitmaxalia;				  /* Vitesse maxi alliation en m/mn */
-	char			res7[48];						/* Reserve */
-
-	/* FUR --> L-TOP */
-	float			tmpp3;   					  /* Temperature bande sortie chauffe P3 */
-	float			Tmpp3co;   					/* Temperature bande sortie chauffe P3 en coin */
-	float			tmpp3cm;   					/* Temperature bande sortie chauffe P3 en coin */
-	float			tmpp3util;					/* Temperature bande sortie chauffe P3 utilisee */
-	int				ctrlrtf;   					/* controle RTF par LTOP (0=operateur,1=L-TOP) */
-	float			cha_chargz1;				/* Mesure de la charge z1 chauffe */
-	float			cha_chargz2;				/* Mesure de la charge z2 chauffe */ 
-	float			cha_chargz3;				/* Mesure de la charge z3 chauffe */
-	float			cha_chargz4;				/* Mesure de la charge z4 chauffe */ 
-	float			cha_chargz5;				/* Mesure de la charge z5 chauffe */ 
-	float			cha_chargz6;				/* Mesure de la charge z6 chauffe */
-	float			cha_chargz7;				/* Mesure de la charge z7 chauffe */
-	float			cha_chargz8;				/* Mesure de la charge z8 chauffe */
-	float			cha_tmp_t1z1;				/* Temperature tube 1 zone 1 */
-	float			cha_tmp_t2z1;				/* Temperature tube 2 zone 1 */
-	float			cha_tmp_t3z1;				/* Temperature tube 3 zone 1 */
-	float			cha_tmp_t1z2;				/* Temperature tube 1 zone 2 */ 
-	float			cha_tmp_t2z2;				/* Temperature tube 2 zone 2 */
-	float			cha_tmp_t3z2;				/* Temperature tube 3 zone 2 */
-	float			cha_tmp_t1z3;				/* Temperature tube 1 zone 3 */
-	float			cha_tmp_t2z3;				/* Temperature tube 2 zone 3 */
-	float			cha_tmp_t3z3;				/* Temperature tube 3 zone 3 */
-	float			cha_tmp_t1z4;				/* Temperature tube 1 zone 4 */
-	float			cha_tmp_t2z4;				/* Temperature tube 2 zone 4 */
-	float			cha_tmp_t3z4;				/* Temperature tube 3 zone 4 */
-	float			cha_tmp_t1z5;				/* Temperature tube 1 zone 5 */
-	float			cha_tmp_t2z5;				/* Temperature tube 2 zone 5 */
-	float			cha_tmp_t3z5;				/* Temperature tube 3 zone 5 */
-	float			cha_tmp_t1z6;				/* Temperature tube 1 zone 6 */
-	float			cha_tmp_t2z6;				/* Temperature tube 2 zone 6 */
-	float			cha_tmp_t3z6;				/* Temperature tube 3 zone 6 */
-	float			cha_tmp_t1z7;				/* Temperature tube 1 zone 7 */
-	float			cha_tmp_t2z7;				/* Temperature tube 2 zone 7 */
-	float			cha_tmp_t3z7;				/* Temperature tube 3 zone 7 */
-	float			cha_tmp_t1z8;				/* Temperature tube 1 zone 8 */
-	float			cha_tmp_t2z8;				/* Temperature tube 2 zone 8 */
-	float			cha_tmp_t3z8;				/* Temperature tube 3 zone 8 */
-	float			cha_tmp_z1;					/* Temperature zone 1 */
-	float			cha_tmp_z2;					/* Temperature zone 2 */
-	float			cha_tmp_z3;					/* Temperature zone 3 */
-	float			cha_tmp_z4;					/* Temperature zone 4 */
-	float			cha_tmp_z5;					/* Temperature zone 5 */
-	float			cha_tmp_z6;					/* Temperature zone 6 */
-	float			cha_tmp_z7;					/* Temperature zone 7 */
-	float			cha_tmp_z8;					/* Temperature zone 8 */
-	float			cha_tmp_fumz1;			/* Temperature fumee zone 1 */
-	float			cha_tmp_fumz2;			/* Temperature fumee zone 2 */
-	float			cha_tmp_fumz3;			/* Temperature fumee zone 3 */
-	float			cha_tmp_fumz4;			/* Temperature fumee zone 4 */
-	float			cha_tmp_fumz5;			/* Temperature fumee zone 5 */
-	float			cha_tmp_fumz6;			/* Temperature fumee zone 6 */
-	float			cha_tmp_fumz7;			/* Temperature fumee zone 7 */
-	float			cha_tmp_fumz8;			/* Temperature fumee zone 8 */
-	char			res4[28];	    			/* Reserve */   
-	float			tmpp4;    					/* Temperature bande sortie maintien P4 */
-	float			tmpp4b;   					/* Temperature bande sortie maintien P4 bis */
-	float			tmpp4co;   					/* Temperature bande sortie maintien P4 en coin */  
-	float			tmpp4cm;  					/* Temperature bande sortie maintien P4 en coin */
-	float			tmpp4util;					/* Temperature bande sortie maintien P4 utilisee */
-	int				ctrlmai;   					/* Controle MAINTIEN par LTOP (0=operateur,1=L-TOP) */
-	int				stramai;   					/* Strategie du MAINTIEN (1=aucune,2=P3,3=P3 puis vitesse) */
-	float			mai_tmp_z1;					/* Temperature zone 1 en degres */
-	float			mai_tmp_z2;					/* Temperature zone 2 en degres */
-	float			mai_tmp_z3;					/* Temperature zone 3 en degres */        
-	float			mai_tmp_z4;					/* Temperature zone 4 en degres */        
-	float			ter_tmp_z1;					/* Temperature zone 1 en degres */        
-	float			ter_tmp_z2;					/* Temperature zone 2 en degres */        
-	float			ter_tmp_z3;					/* Temperature zone 3 en degres */  
-	char			res5[36];  					/* Reserve */                        
-	float			offset_tmp;					/* Offset sur la temperature de bande chauffe et maintien (P3 et P4) en degres */
-	int				ctrlref;   					/* controle Refroidissement rapide par LTOP (0=operateur,1=L-TOP) */
-	float			tmpp10;    					/* Temperature bande sortie refroidissemt rapide P10 */
-	float			tmpp11;   					/* Temperature bande sortie refroidissemt rapide P11 */
-	float			tmpp12c1;					  /* temperature bande sortie refroidissemt rapide P12 en coin */ 
-	float			tmpp12c2;  					/* Temperature bande sortie refroidissemt rapide P12 en coin */
-	float			tmprefutil;					/* Temperature bande sortie refroidissemt rapide utilisee */
-	float			ref_cha_z1av;				/* Charge zone 1 avant */
-	float			ref_cha_z1ar;				/* Charge zone 1 arriere */                    
-	float			ref_cha_z2av;				/* Charge zone 2 avant */                      
-	float			ref_cha_z2ar;				/* Charge zone 1 arriere */
-	float			ref_cha_z3av;				/* Charge zone 1 avant */              
-	float			ref_cha_z3ar;				/* Charge zone 1 arriere */                    
-	int				ctrlrefz1;					/* controle Z1 refroidissement [on/off] (0=operateur,1=L-TOP) */
-	int				ctrlrefz2;					/* controle Z2 refroidissement [on/off] (0=operateur,1=L-TOP) */
-	int				ctrlrefz3;					/* controle Z3 refroidissement [on/off] (0=operateur,1=L-TOP) */
-	char			res6[12];  					/* Reserve */
-
-	// Ajouts pour V-iModel début.
-	int				iModelUsed;										      // Indique le modèle utilisé. (0 = L-TOP, 1 = V-iModel)
-	int				iNbOfTubeInDefaultZone1;						// Nombre de tubes en défaut RTF zone 1.
-	int				iNbOfTubeInDefaultZone2;						// Nombre de tubes en défaut RTF zone 2.
-	int				iNbOfTubeInDefaultZone3;						// Nombre de tubes en défaut RTF zone 3.
-	int				iNbOfTubeInDefaultZone4;						// Nombre de tubes en défaut RTF zone 4.
-	int				iNbOfTubeInDefaultZone5;						// Nombre de tubes en défaut RTF zone 5.
-	int				iNbOfTubeInDefaultZone6;						// Nombre de tubes en défaut RTF zone 6.
-	int				iNbOfTubeInDefaultZone7;						// Nombre de tubes en défaut RTF zone 7.
-	int				iNbOfTubeInDefaultZone8;						// Nombre de tubes en défaut RTF zone 8.
-	float			fRTFGasFlowZone1;					// Nm3/h	// Débit de gaz RTF Zone 1.
-	float			fRTFGasFlowZone2;					// Nm3/h	// Débit de gaz RTF Zone 2.
-	float			fRTFGasFlowZone3;					// Nm3/h	// Débit de gaz RTF Zone 3.
-	float			fRTFGasFlowZone4;					// Nm3/h	// Débit de gaz RTF Zone 4.
-	float			fRTFGasFlowZone5;					// Nm3/h	// Débit de gaz RTF Zone 5.
-	float			fRTFGasFlowZone6;					// Nm3/h	// Débit de gaz RTF Zone 6.
-	float			fRTFGasFlowZone7;					// Nm3/h	// Débit de gaz RTF Zone 7.
-	float			fRTFGasFlowZone8;					// Nm3/h	// Débit de gaz RTF Zone 8.
-	// Ajouts pour V-iModel fin.
-
-  
-	// Ajouts pour V-iModel 20/05/2021 pour maintien début.
-  float     fMaintienTempTubeZ1_1;    // °C     // Température de tube du maintien Zone 1 n°1.
-  float     fMaintienTempTubeZ1_2;    // °C     // Température de tube du maintien Zone 1 n°2.
-  float     fMaintienTempTubeZ1_3;    // °C     // Température de tube du maintien Zone 1 n°3.
-  float     fMaintienTempTubeZ2_1;    // °C     // Température de tube du maintien Zone 2 n°1.
-  float     fMaintienTempTubeZ2_2;    // °C     // Température de tube du maintien Zone 2 n°2.
-  float     fMaintienTempTubeZ2_3;    // °C     // Température de tube du maintien Zone 2 n°3.
-  float     fMaintienTempTubeZ3_1;    // °C     // Température de tube du maintien Zone 3 n°1.
-  float     fMaintienTempTubeZ3_2;    // °C     // Température de tube du maintien Zone 3 n°2.
-  float     fMaintienTempTubeZ3_3;    // °C     // Température de tube du maintien Zone 3 n°3.
-  float     fMaintienTempTubeZ4_1;    // °C     // Température de tube du maintien Zone 4 n°1.
-  float     fMaintienTempTubeZ4_2;    // °C     // Température de tube du maintien Zone 4 n°2.
-  float     fMaintienTempTubeZ4_3;    // °C     // Température de tube du maintien Zone 4 n°3.
-  
-  float     fMaintienChargeZ1;        // %      // Puissance maintien zone 1.
-  float     fMaintienChargeZ2;        // %      // Puissance maintien zone 2.
-  float     fMaintienChargeZ3;        // %      // Puissance maintien zone 3.
-  float     fMaintienChargeZ4;        // %      // Puissance maintien zone 4.
-  float     fTunnelChargeZ1;          // %      // Puissance tunnel zone 1.
-  float     fTunnelChargeZ2;          // %      // Puissance tunnel zone 2.
-  float     fTunnelChargeZ3;          // %      // Puissance tunnel zone 3.
-  
-  
-	// Ajouts pour V-iModel 20/05/2021 pour maintien fin.
-}; 
-
-struct consignes
-{
-	/* L-TOP --> FUR */
-	int				mode_ctrl;					  /* Mode de controle (0=temperature , 1=charge) */     
-	int				fou_cons_valid;				/* Validite des consignes four (0=invalide,1=valide) */
-	float			cha_cons_tmp_z1;			/* Consigne temperature zone 1 */
-	float			cha_cons_tmp_z2; 			/* Consigne temperature zone 2 */
-	float     cha_cons_tmp_z3;			/* Consigne temperature zone 3 */
-	float			cha_cons_tmp_z4; 			/* Consigne temperature zone 4 */  
-	float     cha_cons_tmp_z5;			/* Consigne temperature zone 5 */ 
-	float     cha_cons_tmp_z6;			/* Consigne temperature zone 6 */ 
-	float			cha_cons_tmp_z7; 			/* Consigne temperature zone 7 */ 
-	float			cha_cons_tmp_z8; 			/* Consigne temperature zone 8 */  
-	float			cha_cons_chargz1;     /* Consigne charge z1 chauffe */
-	float			cha_cons_chargz2;   	/* Consigne charge z2 chauffe */  
-	float			cha_cons_chargz3;   	/* Consigne charge z3 chauffe */  
-	float			cha_cons_chargz4;   	/* Consigne charge z4 chauffe */  
-	float			cha_cons_chargz5;   	/* Consigne charge z5 chauffe */  
-	float			cha_cons_chargz6;   	/* Consigne charge z6 chauffe */  
-	float			cha_cons_chargz7;   	/* Consigne charge z7 chauffe */  
-	float			cha_cons_chargz8;   	/* Consigne charge z8 chauffe */  
-	char			res7[28];	     			  /* Reserve */
-	float			mai_cons_tmp_z;				/* Consigne temperature zone en degres (appliquee sur 7 zones maintien) */
-	char			res8[48];	   				  /* Reserve */
-	int				ref_cons_valid;  			/* Validite des consignes ref rapide  (0=invalide,1=valide) */  
-	float			ref_cons_cha_z1; 			/* Consigne charge zone 1 en % ref. rapide) */
-	float			ref_cons_cha_z2; 			/* Consigne charge zone 2 en % ref. rapide) */
-	float			ref_cons_cha_z3; 			/* Consigne charge zone 3 en % ref. rapide) */
-	char			res9[32];	    			  /* Reserve */
-
-	/* L-TOP --> LINE */
-	int				eb_cons_valid;  			/* Validite des consignes entrainement de bande (0=invalide,1=valide) */
-	float     cons_vitcen;   				/* Consigne vitesse ligne en m/mn */
-	float			offset_tract;				  /* Offser traction (+ ou - 10%) */    
-	int				demarrage_ok; 				/* Autorisation de demarrage vis a vis du risque de plis (0=non,1=oui) */
-	int 			transient_encours;    /* transitoire en cours. 0=non 1=oui */
-	float     Vmax_boballia_enc;    /* vitesse maximum sans limitation operateur */       
-	char 			nobob_enc[8+1];       /* Numero de bobine */
-	char			res11[3];             /* réserve pour alignement*/
-	float     Vmax_boballia_sui;    /* vitesse maximum sans limitation operateur */       
-	char 			nobob_sui[8+1];  			/* Numero de bobine */
-	char			res12[3];	    			  /* réserve pour alignement*/      
-	char			res10[48];    				/* Reserve */
-
-	// Ajouts pour V-iModel début.
-	float			fRTFGasFlowZone1;					// Nm3/h // Consigne de débit de gaz RTF Zone 1.
-	float			fRTFGasFlowZone2;					// Nm3/h // Consigne de débit de gaz RTF Zone 2.
-	float			fRTFGasFlowZone3;					// Nm3/h // Consigne de débit de gaz RTF Zone 3.
-	float			fRTFGasFlowZone4;					// Nm3/h // Consigne de débit de gaz RTF Zone 4.
-	float			fRTFGasFlowZone5;					// Nm3/h // Consigne de débit de gaz RTF Zone 5.
-	float			fRTFGasFlowZone6;					// Nm3/h // Consigne de débit de gaz RTF Zone 6.
-	float			fRTFGasFlowZone7;					// Nm3/h // Consigne de débit de gaz RTF Zone 7.
-	float			fRTFGasFlowZone8;					// Nm3/h // Consigne de débit de gaz RTF Zone 8.
-	// Ajouts pour V-iModel fin.
-
-  // Ajouts pour V-iModel 20/05/2021 pour maintien début.
-  float     fMaintienChargeZ1;        // %      // Puissance maintien zone 1.
-  float     fMaintienChargeZ2;        // %      // Puissance maintien zone 2.
-  float     fMaintienChargeZ3;        // %      // Puissance maintien zone 3.
-  float     fMaintienChargeZ4;        // %      // Puissance maintien zone 4.
-  float     fTunnelChargeZ1;          // %      // Puissance tunnel zone 1.
-  float     fTunnelChargeZ2;          // %      // Puissance tunnel zone 2.
-  float     fTunnelChargeZ3;          // %      // Puissance tunnel zone 3.
-  
-  int       iLifeCounter; 
-	// Ajouts pour V-iModel 20/05/2021 pour maintien fin.
-
-  
-};
-
-
-/* ATTENTION extern est très important sinon PB au link : undefsymb sur CMICOM */
-//
-//extern struct CMI
-//{
-//	long cmicom_deb;
-//	struct fichbob m9100[8];
-//	struct mesures m9101;    
-//	struct consignes mcons;                                 
-//	char res_cmicom[6587];
-//	char cmicom_fin;
-//};
-//
-//struct CMI CMICOM;
-
 
 /* ATTENTION extern est très important sinon PB au link : undefsymb sur CMICOM */
 /* note de JAB : l'extern était au dessus --> descendu pour compilation visual*/
 
-struct p_BLD						/* note de JAB l'extern n'est plus */
+struct p_BLD_specific
 {
-
-	long cmicom_deb;
-	struct fichbob m9100[8];
-	struct mesures m9101;
-	struct consignes mcons;
-	//char res_cmicom[6587];
-	char cmicom_fin;
+	
+  double                            FFStripTempOffset       = 0.;
+  double                            TTStripTempOffset       = 0.;
+  double                            HHStripTempOffset       = 0.;
+  double                            CCStripTempOffset       = 0.;
+  double                            HBStripTempOffset       = 0.;
+  double                            DDStripTempOffset       = 0.;
+  long                              topCounterWeldEvent     = 0;
+  long                              topCounterWeldEventLast = 0;
+  double                            roofTempHBSetpoint      = 0.;
 };
 
 
@@ -457,7 +196,7 @@ struct com_globalSection
 {
 	char HVM_GLOBALSECTION_NAME[50 + 1];
 	char HVM_GLOBALSECTION_FILE_NAME[50 + 1];
-	struct p_BLD *                    pSec;                     // Pointer to GEN global section.
+	struct p_BLD_specific *           pSpe;                     // Pointer to GEN global section.
 	HANDLE                            HandleMutexAccess;        // Handle of global section. 
 	HANDLE                            handleGlobalSection;      // Handle of global section. 
 	bool                              newGlobalSection;         // New global section.
@@ -476,15 +215,15 @@ struct com_globalSection
 	// If another thread try to lock the mutex, it will wait INFINITE TIME.
 	void lockAccess()
 	{
-		if (NULL != HandleMutexAccess)  WaitForSingleObject(HandleMutexAccess, 2100L);
-		else                              createOrOpenMutex(true);
+		if (NULL != HandleMutexAccess)  WaitForSingleObject(HandleMutexAccess, 250L);
+		else                            createOrOpenMutex(true);
 	}
 
 	// This function unlock the mutex.
 	void unLockAccess()
 	{
 		if (NULL != HandleMutexAccess)  ReleaseMutex(HandleMutexAccess);
-		else                              createOrOpenMutex(false);
+		else                            createOrOpenMutex(false);
 	}
 
 	// This function Destroy the mutex.
@@ -499,21 +238,21 @@ struct com_globalSection
 	}
 
 
-	long map(long        actionType                       // Entry: Type of action: opening, creation.
-		, long        maxSizeMapObject                 // Entry: The low-order  DWORD of the maximum size of the file mapping object.
-		, char      * globalSectionName                // Entry: Global section name.
-		, char      * globalSectionFileName            // Entry: Global section filename.
-		, bool      * newGlobalSection                 // Exit: Creation indicator.
-		, void    * * globalSectionMapAdress           // Exit: Adress of the global section.
-		, HANDLE    * handle_globalSectionFile         // Exit or Entry: Handle of file.
-		)
+	long map( long        actionType                       // Entry: Type of action: opening, creation.
+		      , long        maxSizeMapObject                 // Entry: The low-order  DWORD of the maximum size of the file mapping object.
+		      , char      * globalSectionName                // Entry: Global section name.
+		      , char      * globalSectionFileName            // Entry: Global section filename.
+		      , bool      * newGlobalSection                 // Exit: Creation indicator.
+		      , void    * * globalSectionMapAdress           // Exit: Adress of the global section.
+		      , HANDLE    * handle_globalSectionFile         // Exit or Entry: Handle of file.
+		      )
 	{
 		char      fileName[500 + 1] = "[utl.globalSection]";   // File Name for traces
 		char      traceTempo[500 + 1] = { 0 };                    // Trace tempory chain.
 		long      status = 0;                                      // Function status.
 
-		strncpy_s(this->HVM_GLOBALSECTION_NAME, 50, "HVM", strlen("HVM"));
-		strncpy_s(this->HVM_GLOBALSECTION_FILE_NAME, 50, "HVM_GlobalSection_", strlen("HVM_GlobalSection_"));
+		strncpy_s(this->HVM_GLOBALSECTION_NAME, 50, "SPE", strlen("SPE"));
+		strncpy_s(this->HVM_GLOBALSECTION_FILE_NAME, 50, "SPE_GlobalSection_", strlen("SPE_GlobalSection_"));
 
 		// Pointer description.
 		LPVOID                pointerMappedLocation = nullptr;     // Pointer to adress mapped.
@@ -582,14 +321,14 @@ struct com_globalSection
 		{
 			// Map or create the global section.
 			handleFileCreation = CreateFile(tempo_globalSectionFileName			       // Global section file Name pointer.
-				, GENERIC_READ | GENERIC_WRITE	           // Define acess mode.
-				, FILE_SHARE_READ | FILE_SHARE_WRITE      // Define share mode.
-				, &pointerSecurityAttributes							 // Pointer to security attributes.
-				, localCreationType  		      			     // Define type of opening.
+				, GENERIC_READ | GENERIC_WRITE	            // Define acess mode.
+				, FILE_SHARE_READ | FILE_SHARE_WRITE        // Define share mode.
+				, &pointerSecurityAttributes							  // Pointer to security attributes.
+				, localCreationType  		      			        // Define type of opening.
 				// If the specified file exists, the function succeeds and the last-error code is set to ERROR_ALREADY_EXISTS (183).
 				// If the specified file does not exist and is a valid path to a writable location, the function creates a file and the last - error code is set to zero.
-				, FILE_ATTRIBUTE_NORMAL                   // The file or device attributes and flags, FILE_ATTRIBUTE_NORMAL being the most common default value for files.
-				, NULL                                    // A valid handle to a template file with the GENERIC_READ access right. 
+				, FILE_ATTRIBUTE_NORMAL                     // The file or device attributes and flags, FILE_ATTRIBUTE_NORMAL being the most common default value for files.
+				, NULL                                      // A valid handle to a template file with the GENERIC_READ access right. 
 				// The template file supplies file attributes and extended attributes for the file that is being created.
 				// This parameter can be NULL.
 				// When opening an existing file, CreateFile ignores this parameter.
@@ -683,7 +422,8 @@ struct com_globalSection
 
 };
 
-extern struct com_globalSection    gblSec;                       // Extern declaration of HVM global section.
+
+
 
 struct SPE_specific 
 {
@@ -692,12 +432,12 @@ struct SPE_specific
 
   //------------------------------------------------------------------------------------
   // Application name.
-  char                                    AppName       [DIM_NAMES + 1]     = "AM_MAR_GALMA2__"       ;           // Application name.
-  char                                    heatCycleFile [DIM_NAMES + 1]     = "Heat Cycles AMNS HDGL4";           // Heat Cycles.
-  char                                    heatCycleName [DIM_NAMES + 1]     = "Heat cycles HDGL4"     ;           // "Heat cycles"
+  char                                    AppName       [DIM_NAMES + 1]     = "ARV_CRE_HDGL2__"       ;           // Application name.
+  char                                    heatCycleFile [DIM_NAMES + 1]     = "Heat Cycles Arv HDGL2" ;           // Heat Cycles.
+  char                                    heatCycleName [DIM_NAMES + 1]     = "Heat cycles HDGL2"     ;           // "Heat cycles"
   long                                    setPointCounter                   = 0;
-  bool                                    hasCoilQueueIntegrated            = true;  
-  bool                                    hasTrackingIntegrated             = true;
+  bool                                    hasCoilQueueIntegrated            = false;  
+  bool                                    hasTrackingIntegrated             = false;
   double                                  onLiveDynModelDFFpyroTemp         = 0.;
   bool                                    useAdaptOnEmisElseThLosses        = true;
   bool                                    useSpeedJumpForTransitionning     = false;
@@ -707,14 +447,16 @@ struct SPE_specific
   bool                                    isUsingDFFCascadeMode             = false;
   double                                  splitRangeDFFMax[DIM_ZONES]       = {0};
   double                                  splitRangeDFFMin[DIM_ZONES]       = {0};
+  double                                  nextZoneHDCutDFF[DIM_ZONES]       = {0};
   bool                                    simulationCombineTransfer         = false;
   double                                  coefTuningFixDFFEmissivity        = 0.;
+  bool                                    hasCommunicationExecutable        = true;
   
   //------------------------------------------------------------------------------------
   // Standard Specific Data.
   long                                    computerNumber                    = 1;     // Indicate the computer number: server 1 or server 2.
   bool                                    useFixedDFFEmissivity             = false;
-  bool                                    hasRecievedAllmessages [5]        = {0} ;
+  bool                                    hasRecievedAllmessages [7]        = {0} ;
   double                                  rollExchangeCoefficient           = 0.85;     // Strip / roll exchnage correction coefficient.
   double                                  rollConductivityCoefficient       = 1.  ;     // Roll steel conductivity correction coefficient.
   bool                                    isTrackingSeparatedFromSpeed      = false;
@@ -734,7 +476,17 @@ struct SPE_specific
   long                                    nuNextColorIndex                      = 0   ;
  
   // Local variable.
+  bool                                    coilBufferStackInitialize             = false;
+  bool                                    coilStackInitialize                   = false;
+  char                                    entryIdentityLast   [DIM_NAMES + 1]   = {0};
+  double                                  lastWeldPosition                      = 9999.;
+  char                                    refCoilID           [DIM_NAMES + 1]   = {0};
+  char                                    refCoilIDLine       [DIM_NAMES + 1]   = {0};
+  bool                                    lineWeldPositionAvailableForUse       = false;
+  char                                    entrySectionsIdentities [DIM_SECTIONS][DIM_NAMES + 1] = {0};
+  time_t                                  lastUnPack                            = 0;
   double                                  lastRTFZoneHeatDemand[DIM_ZONES][200] = {0};
+  bool                                    twoFirstIDDifferent                   = false;
   long                                    hdIndex              [DIM_ZONES]      = {0};
   long                                    nbBurnerInDefaultRTF [DIM_ZONES]      = {0};
   long                                    nbHdSmothering                        = 5;
@@ -742,13 +494,30 @@ struct SPE_specific
   double                                  HDDoubleZoneJET[4]                    = {0};
   struct UTL_pid_objects                  pidErrorRTF                           = {0};
   struct UTL_pid_objects                  pidErrorRTS                           = {0};
-  struct jetMaxRotationSpeedPerQt         sJetMaxRotSpeedQt                     = {0};
   double                                  soakingTemperatureMeasurement         = 0.;
   double                                  soakingTemperatureSetpoint            = 0.;
   double                                  rtfZonesFumesTemperature [DIM_ZONES]  = {0};    
   double                                  alliationMaxSpeed                     = 0.; 
   struct UTL_pid_objects                  pidSoakingStripTemp                   = {0};  
   double                                  tractionOffset                        = 0.;
+  struct com_globalSection                gblSec ;                       // Extern declaration of HVM global section.
+  long                                    lScenarioIDCurrent                    = -1;
+  time_t                                  recieveTimeScenarioID                 = 0;
+  bool                                    bIsScenarioCalculationAUthorized      = true;
+  long                                    nuStageScenario                       = 0;
+  long                                    nuSectionScenario                     = 0;
+  long                                    nuZoneScenario                        = 0;
+  long                                    nuCoilScenario                        = 0;
+  struct MOD_HV_scenarioData*             pScenarioDataInput                    = {0};
+  double                                  specificConsumption[2]                = {0};
+  double                                  efficiency         [2]                = {0};
+  struct MOD_HV_GLB_parameter_heat_cycle* pHeatCycles        [20]               = {0};
+  long                                    lNbHeatCycleStored                    = -1; 
+  long                                    lNbHeatCycleToBeStored                = -1; 
+  long                                    lIndexHeatCycle                       = -1; 
+  long                                    nuSectionHeatCycle                    = 0;
+  time_t                                  lastRecievedFirstHCMessage            = 0;                // Time we have recieved last HC table.
+  struct SPE_CoilHeatCycleTable           heatCycleCodeTable[10]                = {0};
   
 
   //------------------------------------------------------------------------------------
@@ -771,6 +540,7 @@ struct SPE_specific
   void    treatmentOfSpxMeaMessage                ( struct MOD_HV_measures &messageRecieve                                            );  // Specifc actions to be done on reception of message in Masn thread.
   void    productLineNumber                       ( FILE **traceFilePointer   , bool    hasSimulationMode, struct GEN_utility *  pGEN );  // Set product line number based on any parameters desired.
   void    productCalculs                          ( FILE **traceFilePointer   , bool    hasSimulationMode, struct GEN_utility *  pGEN );  // Realized all calculs on products.
+  void    productCalculsALL                       ( FILE **traceFilePointer		, bool    hasSimulationMode, struct MOD_HV_coil *  pCoil, struct GEN_utility *  pGEN  );
   void    measurementTreatement                   ( FILE ** ppTraceFilePointer, bool    hasSimulationMode, struct GEN_utility *  pGEN );  // Specific measurement treatment actions.
   void    simulationTreatment                     ( struct GEN_utility *  pGEN              );   // Specific simulation  treatment actions.
   void    simulationTreatmentOnLinePLCRecieve     (                                         );   // Specific simulation treatment actions on reception of a line PLC message.
@@ -793,6 +563,7 @@ struct SPE_specific
   void    onLiveControlParameterInitialisation    ( SPE_specific_on_live_parameters * parameters );
   double  stripRollExchangeCoefficient            ( );
   bool    jetOnLiveControl                        ( long nuSectionInType, struct UTL_pid_objects * pPidJET, struct MOD_HV_pointers_section_line *  pSectionMSC, struct MOD_HV_coil_calcul_stage_section * pStageSection, double * pHD, struct MOD_HV_TRS_profil * pProfil, double * coolDemandMeasure );
+  bool    jetSaturationCalculation                ( long nuSectionInType, struct UTL_pid_objects * pPidJET, struct MOD_HV_pointers_section_line *  pSectionMSC, struct MOD_HV_coil_calcul_stage_section * pStageSection, double * pHD, struct MOD_HV_TRS_profil * pProfil, double * coolDemandMeasure, bool &isSaturatedMax, bool &isSaturatedMin );
   bool    jetOnLiveNotUnderControl                ( long nuSectionInType, double cv[], double modelSp[], UTL_pid_objects * pPidJET, struct MOD_HV_TRS_profil * pProfil );
   void    finalSpecificActions                    ( struct GEN_utility *  pGEN );
   void    onLiveCalculationBegins                 ( FILE **traceFilePointer, double timeSpan, struct GEN_utility *  pGEN );
@@ -809,6 +580,7 @@ struct SPE_specific
   double  getPotTemperature                       ( );
   void    changeJETConfiguration                  ( struct zone_jet * pZoneJet, struct JET_model * pEczJET, long nuZone, long nuECZ );
   bool    dffZoneMaximumPower                     ( long nuSectionInLine, long nuZone, double width, double &maximumPower );
+  bool    dffZoneFixedHD                          ( long nuSectionInLine, long nuZone, double refparameterModelInput, double & FixedHD, bool & Imposed );
   void    DFFSetpointCorrection                   ( double &heatDemand, long nuZone );
   void    copyHeatCycle                           ( void * pPointer );
   void    storeHeatCycleInSpecific                ( );
@@ -820,8 +592,8 @@ struct SPE_specific
                                                   , double    secondWidth                 // Entry: Second coil width     (transient situation).
                                                   , double    secondThickness             // Entry: Second coil thickness (transient situation). 
                                                   );
-  void    readSpecificCommunication               ( FILE **traceFilePointer, struct MOD_HV_measures *    pMeasures, struct GEN_utility *  pGEN   );
-  void    writeSpecificCommunication              ( FILE **traceFilePointer, struct MOD_HV_setpoints *   pSetpoints, struct GEN_utility *  pGEN  );
+  void    readSpecificCommunication               ( FILE **traceFilePointer, void *   pMeasures , struct GEN_utility *  pGEN, bool isComExe, long lType );
+  void    writeSpecificCommunication              ( FILE **traceFilePointer, void *   pSetpoints, struct GEN_utility *  pGEN, bool isComExe, long lType );
   double  calculateStripEntryTemperature          ( double * zoneHD, bool isHDElseTubeTemp );
   double  calculateStripEntryTemperature          ( double   zoneHDAvg );
 };

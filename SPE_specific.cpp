@@ -18,13 +18,6 @@
 #include "stdafx.h"
 
 //============================================================================
-// SPE_specific: 
-//
-//    Structure declaration.
-//============================================================================
-struct com_globalSection      gblSec;                       // Extern declaration of HVM global section.
-
-//============================================================================
 // SPE_specific: selectConfigurationFile
 //
 //    Select the name of the configuration file to be read.
@@ -44,11 +37,11 @@ long SPE_specific::selectConfigurationFile
                         , traceTempo            // Entry: Trace string.
                         );
 
-  strcpy_s( traceTempo, DIM_PATH, "We are loading AM Mardyck Galma 2 Model." );
+  strcpy_s( traceTempo, DIM_PATH, "We are loading ARVEDI CREMONA HDGL2 Model." );
 
-  strcpy_s( traceTempo, DIM_PATH, "AM_Mardyck_GALMA2.txt" );
+  strcpy_s( traceTempo, DIM_PATH, "ARV_Cremona_HDGL2.txt" );
 
-  if ( sizeof("AM_Mardyck_GALMA2.txt") > size )
+  if ( sizeof("ARV_Cremona_HDGL2.txt") > size )
   {
     strcpy_s( traceTempo, DIM_PATH, "selectConfigurationFile: size of char too low. " );
     pMOD->pUtl->writeTrace( traceFilePointer		  // Entry: File pointer.
@@ -72,14 +65,20 @@ long SPE_specific::selectConfigurationFile
 //============================================================================
 void SPE_specific::applicationInitialization( struct GEN_utility *  pGEN )
 {
+  char directory[DIM_PATH + 1] = {0};
+  strcpy_s( directory, DIM_PATH, pGEN->pointerPath            );
+  strcat_s( directory, DIM_PATH, GLOBALSECTION_PATH           );
+  strcat_s( directory, DIM_PATH, "SPE_gblSec_ARV_CRE_HDGL2"   );
+  strcat_s( directory, DIM_PATH, GLOBALSECTION_EXTENSION      );
+
   // MAP global section for communication.
-  gblSec.map                ( TYPE_CREATION                       // Entry: MAP global section.
-                            , sizeof(struct p_BLD)                // Entry: The low-order  DWORD of the maximum size of the file mapping object.
-                            , "CMI_gblSec"                        // Entry: Global section name.
-                            , "D:\\LTOP\\CMI_gblSec.gbl"		      // Entry: Global section filename.
-                            , &gblSec.newGlobalSection            // Exit: Creation indicator.
-                            , (void**)&gblSec.pSec                // Exit: Adress of the global section.
-                            , &gblSec.handleGlobalSection         // Exit: Handle of file.
+  bool success = gblSec.map ( TYPE_CREATION                             // Entry: MAP global section.
+                            , sizeof(struct p_BLD_specific)             // Entry: The low-order  DWORD of the maximum size of the file mapping object.
+                            , "SPE_gblSec_ARV_CRE_HDGL2"                // Entry: Global section name.
+                            , directory	                                // Entry: Global section filename.
+                            , &gblSec.newGlobalSection                  // Exit: Creation indicator.
+                            , (void**)&gblSec.pSpe                      // Exit: Adress of the global section.
+                            , &gblSec.handleGlobalSection               // Exit: Handle of file.
                             );
  
   // Open or create mutex.
@@ -87,105 +86,105 @@ void SPE_specific::applicationInitialization( struct GEN_utility *  pGEN )
 
   struct HVM_Parameter parameter = pGEN->pHvm->phvm->parameter;
 
-  // For each heat cycles.
-  for ( long i_cycle = 0; i_cycle < DIM_HEAT_CYCLES; i_cycle++ )
-  {
-    parameter.lineCycle[0].shared.heatCycles[i_cycle].cycleNumber = i_cycle;
-    
-    // Each 100 cycles.
-    if ( i_cycle % 100 == 0 )
-    {
-      if ( i_cycle / 100 < 55 || i_cycle / 100 > 87 ) continue;
-    
-      // For all sections.
-      for ( long i_section = 0; i_section < pMOD->pConf->pconf->lines[0].nb_sections; i_section++ )
-      {
-        // RTF / SOA.
-        if ( pMOD->pConf->pconf->lines[0].pSections[i_section]->type == TYPE_RTF ||
-             pMOD->pConf->pconf->lines[0].pSections[i_section]->type == TYPE_SOA
-           )
-        {
-          parameter.lineCycle[0].shared.heatCycles[i_cycle].sections[i_section].stripTarget = pMOD->pConv->kelvin( i_cycle / 10.      );
-          parameter.lineCycle[0].shared.heatCycles[i_cycle].sections[i_section].stripLower  = pMOD->pConv->kelvin( i_cycle / 10. - 10. );
-          parameter.lineCycle[0].shared.heatCycles[i_cycle].sections[i_section].stripUpper  = pMOD->pConv->kelvin( i_cycle / 10. + 30. );
-          parameter.lineCycle[0].shared.heatCycles[i_cycle].sections[i_section].minimumTime = 20.;
-        }
-        // JET cooling.
-        else if ( pMOD->pConf->pconf->lines[0].pSections[i_section]->type == TYPE_JET
-                )
-        {
-          parameter.lineCycle[0].shared.heatCycles[i_cycle].sections[i_section].stripTarget = pMOD->pConv->kelvin( 460.      );
-          parameter.lineCycle[0].shared.heatCycles[i_cycle].sections[i_section].stripLower  = pMOD->pConv->kelvin( 460. - 20 );
-          parameter.lineCycle[0].shared.heatCycles[i_cycle].sections[i_section].stripUpper  = pMOD->pConv->kelvin( 460. + 20 );
-          parameter.lineCycle[0].shared.heatCycles[i_cycle].sections[i_section].minimumTime = 0.;
-          for ( long i_zone = 0; i_zone < pMOD->pConf->pconf->lines[0].pSections[i_section]->nb_zones; i_zone++ )
-          {
-            parameter.lineCycle[0].shared.heatCycles[i_cycle].sections[i_section].zones[i_zone].coolingRate = 10.;
-          }
-        }
-        // NOF section type.
-        else if ( pMOD->pConf->pconf->lines[0].pSections[i_section]->type == TYPE_NOF
-                )
-        {
-          parameter.lineCycle[0].shared.heatCycles[i_cycle].sections[i_section].stripTarget = pMOD->pConv->kelvin( 620.        );
-          parameter.lineCycle[0].shared.heatCycles[i_cycle].sections[i_section].stripLower  = pMOD->pConv->kelvin( 620. -   5. );
-          parameter.lineCycle[0].shared.heatCycles[i_cycle].sections[i_section].stripUpper  = pMOD->pConv->kelvin( 620. + 120. );
-          parameter.lineCycle[0].shared.heatCycles[i_cycle].sections[i_section].minimumTime = 0.;
-        }
-        // BASIC section type.
-        else if ( pMOD->pConf->pconf->lines[0].pSections[i_section]->type == TYPE_BASE
-                )
-        {
-          parameter.lineCycle[0].shared.heatCycles[i_cycle].sections[i_section].stripTarget = parameter.lineCycle[0].shared.heatCycles[i_cycle].sections[i_section-1].stripTarget;
-          parameter.lineCycle[0].shared.heatCycles[i_cycle].sections[i_section].stripLower  = parameter.lineCycle[0].shared.heatCycles[i_cycle].sections[i_section-1].stripLower ;
-          parameter.lineCycle[0].shared.heatCycles[i_cycle].sections[i_section].stripUpper  = parameter.lineCycle[0].shared.heatCycles[i_cycle].sections[i_section-1].stripUpper ;
-          parameter.lineCycle[0].shared.heatCycles[i_cycle].sections[i_section].minimumTime = parameter.lineCycle[0].shared.heatCycles[i_cycle].sections[i_section-1].minimumTime;
-        }
-        // NOF section type.
-        else if ( pMOD->pConf->pconf->lines[0].pSections[i_section]->type == TYPE_POT
-                )
-        {
-          parameter.lineCycle[0].shared.heatCycles[i_cycle].sections[i_section].stripTarget = pMOD->pConv->kelvin( 460.      );
-          parameter.lineCycle[0].shared.heatCycles[i_cycle].sections[i_section].stripLower  = pMOD->pConv->kelvin( 460. - 10 );
-          parameter.lineCycle[0].shared.heatCycles[i_cycle].sections[i_section].stripUpper  = pMOD->pConv->kelvin( 460. + 10 );
-          parameter.lineCycle[0].shared.heatCycles[i_cycle].sections[i_section].minimumTime = 0.;
-        }
-      } // END: For all sections.
-    } // END: % 100
-  
-  }
-
-  //// For all zones.
-  //for ( long iZone = 0; iZone < pMOD->pConf->pconf->nb_zones; iZone++ )
+  //// For each heat cycles.
+  //for ( long i_cycle = 0; i_cycle < DIM_HEAT_CYCLES; i_cycle++ )
   //{
-  //  long nuZoneGlobal = pMOD->pConf->pconf->pZones[iZone]->indexGlobal;
+  //  parameter.lineCycle[0].shared.heatCycles[i_cycle].cycleNumber = i_cycle;
+  //  
+  //  // Each 100 cycles.
+  //  if ( i_cycle % 100 == 0 )
+  //  {
+  //    if ( i_cycle / 100 < 55 || i_cycle / 100 > 87 ) continue;
+  //  
+  //    // For all sections.
+  //    for ( long i_section = 0; i_section < pMOD->pConf->pconf->lines[0].nb_sections; i_section++ )
+  //    {
+  //      // RTF / SOA.
+  //      if ( pMOD->pConf->pconf->lines[0].pSections[i_section]->type == TYPE_RTF ||
+  //           pMOD->pConf->pconf->lines[0].pSections[i_section]->type == TYPE_SOA
+  //         )
+  //      {
+  //        parameter.lineCycle[0].shared.heatCycles[i_cycle].sections[i_section].stripTarget = pMOD->pConv->kelvin( i_cycle / 10.      );
+  //        parameter.lineCycle[0].shared.heatCycles[i_cycle].sections[i_section].stripLower  = pMOD->pConv->kelvin( i_cycle / 10. - 10. );
+  //        parameter.lineCycle[0].shared.heatCycles[i_cycle].sections[i_section].stripUpper  = pMOD->pConv->kelvin( i_cycle / 10. + 30. );
+  //        parameter.lineCycle[0].shared.heatCycles[i_cycle].sections[i_section].minimumTime = 20.;
+  //      }
+  //      // JET cooling.
+  //      else if ( pMOD->pConf->pconf->lines[0].pSections[i_section]->type == TYPE_JET
+  //              )
+  //      {
+  //        parameter.lineCycle[0].shared.heatCycles[i_cycle].sections[i_section].stripTarget = pMOD->pConv->kelvin( 460.      );
+  //        parameter.lineCycle[0].shared.heatCycles[i_cycle].sections[i_section].stripLower  = pMOD->pConv->kelvin( 460. - 20 );
+  //        parameter.lineCycle[0].shared.heatCycles[i_cycle].sections[i_section].stripUpper  = pMOD->pConv->kelvin( 460. + 20 );
+  //        parameter.lineCycle[0].shared.heatCycles[i_cycle].sections[i_section].minimumTime = 0.;
+  //        for ( long i_zone = 0; i_zone < pMOD->pConf->pconf->lines[0].pSections[i_section]->nb_zones; i_zone++ )
+  //        {
+  //          parameter.lineCycle[0].shared.heatCycles[i_cycle].sections[i_section].zones[i_zone].coolingRate = 10.;
+  //        }
+  //      }
+  //      // NOF section type.
+  //      else if ( pMOD->pConf->pconf->lines[0].pSections[i_section]->type == TYPE_NOF
+  //              )
+  //      {
+  //        parameter.lineCycle[0].shared.heatCycles[i_cycle].sections[i_section].stripTarget = pMOD->pConv->kelvin( 620.        );
+  //        parameter.lineCycle[0].shared.heatCycles[i_cycle].sections[i_section].stripLower  = pMOD->pConv->kelvin( 620. -   5. );
+  //        parameter.lineCycle[0].shared.heatCycles[i_cycle].sections[i_section].stripUpper  = pMOD->pConv->kelvin( 620. + 120. );
+  //        parameter.lineCycle[0].shared.heatCycles[i_cycle].sections[i_section].minimumTime = 0.;
+  //      }
+  //      // BASIC section type.
+  //      else if ( pMOD->pConf->pconf->lines[0].pSections[i_section]->type == TYPE_BASE
+  //              )
+  //      {
+  //        parameter.lineCycle[0].shared.heatCycles[i_cycle].sections[i_section].stripTarget = parameter.lineCycle[0].shared.heatCycles[i_cycle].sections[i_section-1].stripTarget;
+  //        parameter.lineCycle[0].shared.heatCycles[i_cycle].sections[i_section].stripLower  = parameter.lineCycle[0].shared.heatCycles[i_cycle].sections[i_section-1].stripLower ;
+  //        parameter.lineCycle[0].shared.heatCycles[i_cycle].sections[i_section].stripUpper  = parameter.lineCycle[0].shared.heatCycles[i_cycle].sections[i_section-1].stripUpper ;
+  //        parameter.lineCycle[0].shared.heatCycles[i_cycle].sections[i_section].minimumTime = parameter.lineCycle[0].shared.heatCycles[i_cycle].sections[i_section-1].minimumTime;
+  //      }
+  //      // NOF section type.
+  //      else if ( pMOD->pConf->pconf->lines[0].pSections[i_section]->type == TYPE_POT
+  //              )
+  //      {
+  //        parameter.lineCycle[0].shared.heatCycles[i_cycle].sections[i_section].stripTarget = pMOD->pConv->kelvin( 460.      );
+  //        parameter.lineCycle[0].shared.heatCycles[i_cycle].sections[i_section].stripLower  = pMOD->pConv->kelvin( 460. - 10 );
+  //        parameter.lineCycle[0].shared.heatCycles[i_cycle].sections[i_section].stripUpper  = pMOD->pConv->kelvin( 460. + 10 );
+  //        parameter.lineCycle[0].shared.heatCycles[i_cycle].sections[i_section].minimumTime = 0.;
+  //      }
+  //    } // END: For all sections.
+  //  } // END: % 100
   //
-  //  if      ( pMOD->pConf->pconf->pZones[iZone]->type == TYPE_RTF ||
-  //            pMOD->pConf->pconf->pZones[iZone]->type == TYPE_SOA
-  //          )
-  //  {
-  //    parameter.zones[nuZoneGlobal].maximumTemperature  = pMOD->pConv->kelvin( 920. );
-  //    parameter.zones[nuZoneGlobal].maximumPower        = 100.;
-  //    parameter.zones[nuZoneGlobal].emissivityFactor    =   0.;
-  //    for ( long i_point = 0; i_point < parameter.zones[nuZoneGlobal].efficiency.nb_points; i_point++ )
-  //    {
-  //      parameter.zones[nuZoneGlobal].efficiency.Y[i_point] = 1.;
-  //    }
-  //  }
-  //  // NOF section type.
-  //  else if ( pMOD->pConf->pconf->pZones[iZone]->type == TYPE_NOF
-  //          )
-  //  {
-  //    long nuZoneType = pMOD->pConf->pconf->pZones[iZone]->indexType;
-  //    parameter.zones[nuZoneGlobal].maximumTemperature  = pMOD->pConv->kelvin( 1350. );
-  //    parameter.zones[nuZoneGlobal].maximumPower        = pMOD->pConf->pconf->zonesNOF[nuZoneType].Power;
-  //    parameter.zones[nuZoneGlobal].emissivityFactor    =   1.;
-  //    for ( long i_point = 0; i_point < parameter.zones[nuZoneGlobal].efficiency.nb_points; i_point++ )
-  //    {
-  //      parameter.zones[nuZoneGlobal].efficiency.Y[i_point] = 1.;
-  //    }
-  //  }
   //}
+
+  // For all zones.
+  for ( long iZone = 0; iZone < pMOD->pConf->pconf->nb_zones; iZone++ )
+  {
+    long nuZoneGlobal = pMOD->pConf->pconf->pZones[iZone]->indexGlobal;
+  
+    if      ( pMOD->pConf->pconf->pZones[iZone]->type == TYPE_RTF ||
+              pMOD->pConf->pconf->pZones[iZone]->type == TYPE_SOA
+            )
+    {
+      parameter.zones[nuZoneGlobal].maximumTemperature  = pMOD->pConv->kelvin( 920. );
+      parameter.zones[nuZoneGlobal].maximumPower        = 100.;
+      parameter.zones[nuZoneGlobal].emissivityFactor    =   0.;
+      for ( long i_point = 0; i_point < parameter.zones[nuZoneGlobal].efficiency.nb_points; i_point++ )
+      {
+        parameter.zones[nuZoneGlobal].efficiency.Y[i_point] = 1.;
+      }
+    }
+    // NOF section type.
+    else if ( pMOD->pConf->pconf->pZones[iZone]->type == TYPE_NOF
+            )
+    {
+      long nuZoneType = pMOD->pConf->pconf->pZones[iZone]->indexType;
+      parameter.zones[nuZoneGlobal].maximumTemperature  = pMOD->pConv->kelvin( 1350. );
+      parameter.zones[nuZoneGlobal].maximumPower        = pMOD->pConf->pconf->zonesNOF[nuZoneType].Power;
+      parameter.zones[nuZoneGlobal].emissivityFactor    =   1.;
+      for ( long i_point = 0; i_point < parameter.zones[nuZoneGlobal].efficiency.nb_points; i_point++ )
+      {
+        parameter.zones[nuZoneGlobal].efficiency.Y[i_point] = 1.;
+      }
+    }
+  }
   
   // Write parameters.
   pGEN->pHvm->writeParameters( &parameter, true );
@@ -348,7 +347,12 @@ void SPE_specific::applicationInitialization( struct GEN_utility *  pGEN )
 //============================================================================
 void SPE_specific::finalExecutionActions( )
 {
-  gblSec.DestroyMutex( );
+  if ( pScenarioDataInput != nullptr ) { delete ( pScenarioDataInput ); pScenarioDataInput = nullptr; }
+  for ( long i = 0; i < 20; i++ )
+  {
+    if ( pHeatCycles[i] != nullptr ) { delete ( pHeatCycles[i] ); pHeatCycles[i] = nullptr; }
+  }
+  //gblSec.DestroyMutex( ); no to avoid final looking of one software...
   return;
 }
 
@@ -364,6 +368,20 @@ void SPE_specific::applicationConfigurationFinalization
 {
   // L-TOP is zero and V-iModel 1.
   this->computerNumber = 1;
+
+
+  pScenarioDataInput = new struct MOD_HV_scenarioData;
+  memset( pScenarioDataInput, 0, sizeof( struct MOD_HV_scenarioData ) );
+
+  if ( pGEN->pConf->pconf->isCommunicationClass )
+  {
+    for ( long i = 0; i < 20; i++ )
+    {
+      pHeatCycles[i] = new ( struct MOD_HV_GLB_parameter_heat_cycle );
+      memset( pHeatCycles[i], 0, sizeof ( struct MOD_HV_GLB_parameter_heat_cycle ) );
+    }
+    
+  }
 
   //// To be removed later.
   //for ( long i_emi = 0; i_emi < DIM_EMISSIVITY_CLASS; i_emi++ )
@@ -394,22 +412,22 @@ void SPE_specific::applicationConfigurationFinalization
   //
   //}
 
-  // Find the furnace communication.
-  if ( !hasSimulationMode )
-  {
-    for ( long i_com = 0; i_com < pMOD->pConf->pconf->coms.lNbTcpCommunication; i_com++ )
-    {
-      // If we have found the furnace TCP communication.
-      if ( strncmp( pMOD->pConf->pconf->coms.comTcp[i_com].name , "TCP_Communication_Furnace", 29 ) == 0 )
-      {
-      
-        //// Specify the port of the TCP communication with the furnace PLC, depending of the server.
-        //if ( specific.computerNumber == 1 ) pMOD->pConf->pconf->coms.comTcp[i_com].lhostPortNumber = 15101;
-        //else                                pMOD->pConf->pconf->coms.comTcp[i_com].lhostPortNumber = 15102;
-      
-      }
-    }
-  }
+  //// Find the furnace communication.
+  //if ( !hasSimulationMode )
+  //{
+  //  for ( long i_com = 0; i_com < pMOD->pConf->pconf->coms.lNbTcpCommunication; i_com++ )
+  //  {
+  //    // If we have found the furnace TCP communication.
+  //    if ( strncmp( pMOD->pConf->pconf->coms.comTcp[i_com].name , "TCP_Communication_Furnace", 29 ) == 0 )
+  //    {
+  //    
+  //      //// Specify the port of the TCP communication with the furnace PLC, depending of the server.
+  //      //if ( specific.computerNumber == 1 ) pMOD->pConf->pconf->coms.comTcp[i_com].lhostPortNumber = 15101;
+  //      //else                                pMOD->pConf->pconf->coms.comTcp[i_com].lhostPortNumber = 15102;
+  //    
+  //    }
+  //  }
+  //}
 
   this->hasSimulationMode = hasSimulationMode;
 
@@ -435,18 +453,18 @@ void SPE_specific::applicationConfigurationFinalization
          )
       {
         EQP_config_zone_RTF * pZoneRTF = ( EQP_config_zone_RTF * ) pMOD->pConf->pconf->pZones[i_zone];
-        //parameter.zones[i_zone].maximumTemperature        = pMOD->pConv->kelvin( 957. );
-        //parameter.zones[i_zone].maximumPower              = pZoneRTF->Power;
-        //parameter.zones[i_zone].emissivityFactor          =   0.;
-        //parameter.zones[i_zone].boosterBumperLow          =   0.;
-        //parameter.zones[i_zone].boosterBumperUpp          =   0.;
-        //parameter.zones[i_zone].demandUppRamp             =   4.;
-        //parameter.zones[i_zone].demandDwRamp              =   4.;
-        //parameter.zones[i_zone].pots[0].replyTemperature  =   pMOD->pConv->kelvin( 460. );
-        //for ( long i_point = 0; i_point < parameter.zones[i_zone].efficiency.nb_points; i_point++ )
-        //{
-        //  parameter.zones[i_zone].efficiency.Y[i_point] = 1.;
-        //}
+        parameter.zones[i_zone].maximumTemperature        = pMOD->pConv->kelvin( 957. );
+        parameter.zones[i_zone].maximumPower              = pZoneRTF->Power;
+        parameter.zones[i_zone].emissivityFactor          =   0.;
+        parameter.zones[i_zone].boosterBumperLow          =   0.;
+        parameter.zones[i_zone].boosterBumperUpp          =   0.;
+        parameter.zones[i_zone].demandUppRamp             =   4.;
+        parameter.zones[i_zone].demandDwRamp              =   4.;
+        parameter.zones[i_zone].pots[0].replyTemperature  =   pMOD->pConv->kelvin( 460. );
+        for ( long i_point = 0; i_point < parameter.zones[i_zone].efficiency.nb_points; i_point++ )
+        {
+          parameter.zones[i_zone].efficiency.Y[i_point] = 1.;
+        }
       }
       // NOF section type.
       else if ( pMOD->pConf->pconf->pZones[i_zone]->type == TYPE_NOF
@@ -477,11 +495,11 @@ void SPE_specific::applicationConfigurationFinalization
       {
         long nuZoneType = pMOD->pConf->pconf->pZones[i_zone]->indexType;
           
-        //parameter.zones[i_zone].emissivityFactor          =   1.;
-        //parameter.zones[i_zone].demandUppRamp             =   4.;
-        //parameter.zones[i_zone].demandDwRamp              =   4.;
-        //parameter.zones[i_zone].jetMaximumFlowFactor      =   1.;
-        //parameter.zones[i_zone].pots[0].replyTemperature  =   pMOD->pConv->kelvin( 460. );
+        parameter.zones[i_zone].emissivityFactor          =   1.;
+        parameter.zones[i_zone].demandUppRamp             =   4.;
+        parameter.zones[i_zone].demandDwRamp              =   4.;
+        parameter.zones[i_zone].jetMaximumFlowFactor      =   1.;
+        parameter.zones[i_zone].pots[0].replyTemperature  =   pMOD->pConv->kelvin( 460. );
 
       }
     }
@@ -534,7 +552,8 @@ void SPE_specific::storeMessageRecievedInformation
   // Store message ID recieved.
   pMeasures->measurementMessage = messageId;
 
-  if      ( messageId == 2 )
+  if      ( messageId == 4001 || messageId == 4003 || 
+            messageId == 4004 || messageId == 4012 || messageId == 4013 || messageId == 4011 )
   {
     pMeasures->measurementType        = TYPE_COILS;             // USED !!!
     pMeasures->nb_messageToSendBack   = 0 ;
@@ -543,7 +562,7 @@ void SPE_specific::storeMessageRecievedInformation
       pMeasures->messageIdToSendBack[i_msg] = -1;
     }
   }
-  else if ( messageId == 3 )
+  else if ( messageId == 4002 ) // 4053
   {
     pMeasures->measurementType        = TYPE_TRACKING;          // USED !!!
     pMeasures->nb_messageToSendBack   = 0 ;
@@ -552,16 +571,54 @@ void SPE_specific::storeMessageRecievedInformation
       pMeasures->messageIdToSendBack[i_msg] = -1;
     }
   }
-  else if ( messageId == 1 )
+  else if ( messageId == 4000 || messageId == 4050 || messageId == 4051 || 
+            messageId == 4052 || messageId == 4053 || messageId == 4054 || 
+            messageId == 4055 )      
   {
-    pMeasures->measurementType        = TYPE_ALL_SECTION;       // USED !!!
-    pMeasures->nb_messageToSendBack   = 2 ;
+    pMeasures->measurementType        = TYPE_ALL_SECTION;
+    if ( messageId == 4000 )   // <== Définir the one who rules the send.
+    {
+      pMeasures->nb_messageToSendBack   = 4;
+      for ( long i_msg = 0; i_msg < DIM_MESSAGES_MAX; i_msg++ )
+      {
+        pMeasures->messageIdToSendBack[i_msg] = -1;
+      }
+      pMeasures->messageIdToSendBack[0] = 4102;   // Furnace and line setpoints message.
+      pMeasures->messageIdToSendBack[1] = 4100;   // Alive message.
+      pMeasures->messageIdToSendBack[2] = 8180;   // Observer message.
+      pMeasures->messageIdToSendBack[3] = 5101;   // Observer message.
+    }
+  }
+  // Heat cycle table.
+  else if ( messageId == 5001 )
+  {
+    pMeasures->measurementType        = TYPE_MSG_HEAT_CYCLE_TABLE_RCV;          // USED !!!
+    pMeasures->nb_messageToSendBack   = 0 ;
     for ( long i_msg = 0; i_msg < DIM_MESSAGES_MAX; i_msg++ )
     {
       pMeasures->messageIdToSendBack[i_msg] = -1;
     }
-    pMeasures->messageIdToSendBack[0] = 101;      // Furnace setpoints
-    pMeasures->messageIdToSendBack[1] = 102;   // Line setpoints
+  }
+  // Coils Heat cycle ID.
+  else if ( messageId == 5002 )
+  {
+    pMeasures->measurementType        = TYPE_MSG_COIL_HEAT_CYCLE_TABLE_RCV;          // USED !!!
+    pMeasures->nb_messageToSendBack   = 0 ;
+    for ( long i_msg = 0; i_msg < DIM_MESSAGES_MAX; i_msg++ )
+    {
+      pMeasures->messageIdToSendBack[i_msg] = -1;
+    }
+  }
+  // Static Simulation calculation.
+  else if ( messageId == 5003 )
+  {
+    pMeasures->measurementType        = TYPE_MSG_STATIC_SIMUL_CALC;          // USED !!!
+    pMeasures->nb_messageToSendBack   = 1 ;
+    for ( long i_msg = 0; i_msg < DIM_MESSAGES_MAX; i_msg++ )
+    {
+      pMeasures->messageIdToSendBack[i_msg] = -1;
+    }
+    pMeasures->messageIdToSendBack[0] = 5103;
   }
   else if ( messageId == -9999 )
   {
@@ -573,6 +630,21 @@ void SPE_specific::storeMessageRecievedInformation
     }
     pMeasures->messageIdToSendBack[0] = 129;
   }
+
+  // Check if no message has been recieved from long time for heat cycle table and heat cycle table is not completed.
+  time_t currentTimeLocal = 0;
+  time( &currentTimeLocal );
+
+  // If long time elapse and at least one table is missing.
+  if ( difftime( currentTimeLocal, lastRecievedFirstHCMessage ) > 5 * 60 &&  // 5 * 60
+       lNbHeatCycleStored < lNbHeatCycleToBeStored                       && 
+       lNbHeatCycleStored > 0 
+       )
+  {
+    // Reset number of heat cycle table stored.
+    lNbHeatCycleStored = 0;
+  }
+
   return;
 }
 
@@ -649,41 +721,6 @@ void SPE_specific::extractValuesFromSetpointStructure
                                 , struct MOD_HV_setpoints               *    pSpt     // Out  : pointer to setpoint structure.
                                 )
 {
-
-  //pSpt->specific.tractionOffset               = 0.;
-  //pSpt->specific.stripTempVapeur1             = pMOD->pConv->kelvin( 751. );
-  //pSpt->specific.stripTempVapeur2             = pMOD->pConv->kelvin( 752. );
-  //pSpt->specific.EmissivityP2                 = 0.25;
-  //pSpt->specific.EmissivityP3                 = 0.26;
-  //pSpt->specific.derivePyro                   = false;
-  //pSpt->specific.tempPyroVirtuelP2            = pMOD->pConv->kelvin( 801. );
-  //pSpt->specific.tempPyroVirtuelP3            = pMOD->pConv->kelvin( 802. );
-  //pSpt->specific.tempPyroVirtuelP4            = pMOD->pConv->kelvin( 803. );
-  //pSpt->specific.tempPyroVirtuelP3Virtuel     = pMOD->pConv->kelvin( 804. );
-  //pSpt->specific.tempPyroVirtuelP13           = 805.;
-  //pSpt->specific.StatusPyrometerP1            = 0;
-  //pSpt->specific.StatusPyrometerP2[0]         = 0;
-  //pSpt->specific.StatusPyrometerP2[1]         = 1;
-  //pSpt->specific.StatusPyrometerP3[0]         = 0;
-  //pSpt->specific.StatusPyrometerP3[1]         = 1;
-  //pSpt->specific.StatusPyrometerP4[0]         = 0;
-  //pSpt->specific.StatusPyrometerP4[1]         = 1;
-  //pSpt->specific.StatusPyrometerP10           = 1;
-  //pSpt->specific.StatusPyrometerP11[0]        = 0;
-  //pSpt->specific.StatusPyrometerP11[1]        = 1;
-  //pSpt->specific.StatusPyrometerP16           = 0;
-  //pSpt->tubes[0].state                        = 1;
-  //for ( long i = 0; i < pMOD->pConf->pconf->nb_tubes; i++ )
-  //{
-  //  if ( i % 10 == 0 )
-  //    pSpt->tubes[i].state                        = 1;
-  //  else
-  //    pSpt->tubes[i].state                        = 0;
-  //}
-
-  
-
-
   // Example:
   if ( strcmp( pInter->in.Mnemonic, "nouvelleConsigne" ) == 0 )
   {
@@ -698,17 +735,318 @@ void SPE_specific::extractValuesFromSetpointStructure
     //pValue->lvalue = pSpt->specific.maNouvelleConsigne1;
   }
 
+  
+  if ( strcmp( pInter->in.Mnemonic, "TOP_COUNTER" ) == 0 )
+  {
+    if ( ++setPointCounter > 1000 ) setPointCounter = 0;
+    pValue->lvalue = setPointCounter;
+    pValue->dvalue = setPointCounter;
+  }
+  if ( strcmp( pInter->in.Mnemonic, "BOTTOM_COUNTER" ) == 0 )
+  {
+    pValue->lvalue = setPointCounter;
+    pValue->dvalue = setPointCounter;
+  }
+  else if ( strcmp( pInter->in.Mnemonic, "SCENARIO_ID" ) == 0 )
+  {
+    pScenarioDataInput->coils[0] = pSpt->stageSimulationResults.coils[0].data;
+    pScenarioDataInput->coils[1] = pSpt->stageSimulationResults.coils[1].data;
 
-  //else if ( strcmp( pInter->in.Mnemonic, "STRIP_TEMP_JET" ) == 0 )
-  //{
-  //  pValue->dvalue = stripTemperatureJET[pInter->in.firstIndex];
-  //}
+    if ( lScenarioIDCurrent > 0 )
+    {
+      if ( pSpt->stageSimulationResults.lScenarioID == lScenarioIDCurrent )
+      {
+        pValue->lvalue = lScenarioIDCurrent;
+        pValue->dvalue = lScenarioIDCurrent;
+        bIsScenarioCalculationAUthorized = true;
+        nuStageScenario     = 0;
+        nuSectionScenario   = 0;
+        nuZoneScenario      = 0;
+        nuCoilScenario      = 0;
+      }
+    }
+  }
+  else if ( strcmp( pInter->in.Mnemonic, "SCN_Thickness" ) == 0 )
+  {
+    pValue->dvalue = pScenarioDataInput->coils[nuCoilScenario].thickness;
+  }
+  else if ( strcmp( pInter->in.Mnemonic, "SCN_Width" ) == 0 )
+  {
+    pValue->dvalue = pScenarioDataInput->coils[nuCoilScenario].width;
+  }
+  else if ( strcmp( pInter->in.Mnemonic, "SCN_Length" ) == 0 )
+  {
+    pValue->dvalue = pScenarioDataInput->coils[nuCoilScenario].length;
+  }
+  else if ( strcmp( pInter->in.Mnemonic, "SCN_Emissivity" ) == 0 )
+  {
+    pValue->dvalue = pScenarioDataInput->coils[nuCoilScenario].emissivity_input;
+  }
+  else if ( strcmp( pInter->in.Mnemonic, "SCN_MaxSpeedCoil" ) == 0 )
+  {
+    pValue->dvalue = pScenarioDataInput->coils[nuCoilScenario].maxSpeedQuality;
+  }
+  else if ( strcmp( pInter->in.Mnemonic, "SCN_HeatCycle" ) == 0 )
+  {
+    pValue->dvalue = pScenarioDataInput->coils[nuCoilScenario].heatCycle;
+    pValue->lvalue = pScenarioDataInput->coils[nuCoilScenario].heatCycle;
+    nuCoilScenario ++;
+  }
+  else if ( strcmp( pInter->in.Mnemonic, "SCN_Control" ) == 0 )
+  {
+    pValue->lvalue = pScenarioDataInput->line.speedControl;
+  }
+  else if ( strcmp( pInter->in.Mnemonic, "SCN_Speed" ) == 0 )
+  {
+    pValue->dvalue = pScenarioDataInput->line.speed;
+  }
+  else if ( strcmp( pInter->in.Mnemonic, "SCN_SpeedLimit" ) == 0 )
+  {
+    pValue->dvalue = pScenarioDataInput->line.operatorSpeedLimit;
+  }
+  else if ( strcmp( pInter->in.Mnemonic, "IS_VALID_SECTION_SCN" ) == 0 )
+  {
+    if ( nuSectionScenario < pMOD->pConf->pconf->lines[0].nb_sections )
+    {
+      pValue->lvalue = 1;
+      pValue->dvalue = 1;
+    }
+    else
+    {
+      pValue->lvalue = 0;
+      pValue->dvalue = 0;
+    }
 
+  }
+  else if ( strcmp( pInter->in.Mnemonic, "SPEED_SCN" ) == 0 )
+  {
+    if ( nuSectionScenario  < pMOD->pConf->pconf->lines[0].nb_sections )
+    {
+      if      ( nuStageScenario == 0 )
+        pValue->dvalue = pSpt->stageSimulationResults.coils[0].calcul.stages.maxSpeed .lines[0].sections[nuSectionScenario].speed;
+      else if ( nuStageScenario == 1 )
+        pValue->dvalue = pSpt->stageSimulationResults.coils[0].calcul.stages.steady   .lines[0].sections[nuSectionScenario].speed;
+      else
+        pValue->dvalue = pSpt->stageSimulationResults.coils[0].calcul.stages.transient.lines[0].sections[nuSectionScenario].speed;
+    }
+    else
+      pValue->dvalue = 0.;
+  }
+  else if ( strcmp( pInter->in.Mnemonic, "STRIP01_SPEED_AFTER_JUMP_SCN" ) == 0 )
+  {
+    if ( nuSectionScenario  < pMOD->pConf->pconf->lines[0].nb_sections )
+    {
+      if      ( nuStageScenario == 0 )
+        pValue->dvalue = pSpt->stageSimulationResults.coils[1].calcul.stages.maxSpeed .lines[0].sections[nuSectionScenario].speed;
+      else if ( nuStageScenario == 1 )
+        pValue->dvalue = pSpt->stageSimulationResults.coils[1].calcul.stages.steady   .lines[0].sections[nuSectionScenario].speed;
+      else
+        pValue->dvalue = pSpt->stageSimulationResults.coils[0].calcul.stages.transient.lines[0].sections[nuSectionScenario].speedAfterJump;
+    }
+    else
+      pValue->dvalue = 0.;
+  }
+  else if ( strcmp( pInter->in.Mnemonic, "STRIP01_TEMPERATURE_AFTER_JUMP" ) == 0 )
+  {
+    if ( nuSectionScenario  < pMOD->pConf->pconf->lines[0].nb_sections )
+    {
+      if      ( nuStageScenario == 0 )
+        pValue->dvalue = 0.;
+      else if ( nuStageScenario == 1 )
+        pValue->dvalue = 0.;
+      else
+        pValue->dvalue = pSpt->stageSimulationResults.coils[0].calcul.stages.transient.lines[0].sections[nuSectionScenario].secondStripTemp;
+    }
+    else
+      pValue->dvalue = 0.;
+  }
+  else if ( strcmp( pInter->in.Mnemonic, "STRIP01_TARGET_TEMPERATURE" ) == 0 )
+  {
+    if ( nuSectionScenario  < pMOD->pConf->pconf->lines[0].nb_sections )
+    {
+      if ( pMOD->pConf->pconf->lines[0].pSections[nuSectionScenario]->type == TYPE_NOF )
+      {
+        long nuPyro = pMOD->pConf->pconf->lines[0].pSections[nuSectionScenario]->nb_pyrometers - 1;
+        if      ( nuStageScenario == 0 )
+          pValue->dvalue = pSpt->stageSimulationResults.coils[0].calcul.stages.maxSpeed .lines[0].sections[nuSectionScenario].pyrometerTarget[nuPyro];
+        else if ( nuStageScenario == 1 )
+          pValue->dvalue = pSpt->stageSimulationResults.coils[0].calcul.stages.steady   .lines[0].sections[nuSectionScenario].pyrometerTarget[nuPyro];
+        else
+          pValue->dvalue = pSpt->stageSimulationResults.coils[0].calcul.stages.transient.lines[0].sections[nuSectionScenario].pyrometerTarget[nuPyro];
+      }
+      else
+      {
+        if      ( nuStageScenario == 0 )
+          pValue->dvalue = pSpt->stageSimulationResults.coils[0].calcul.stages.maxSpeed .lines[0].sections[nuSectionScenario].stripTarget;
+        else if ( nuStageScenario == 1 )
+          pValue->dvalue = pSpt->stageSimulationResults.coils[0].calcul.stages.steady   .lines[0].sections[nuSectionScenario].stripTarget;
+        else
+          pValue->dvalue = pSpt->stageSimulationResults.coils[0].calcul.stages.transient.lines[0].sections[nuSectionScenario].stripTarget;
+
+      }
+    }
+    else
+      pValue->dvalue = 0.;
+  }
+  else if ( strcmp( pInter->in.Mnemonic, "STRIP02_TARGET_TEMPERATURE" ) == 0 )
+  {
+    if ( nuSectionScenario  < pMOD->pConf->pconf->lines[0].nb_sections )
+    {
+      if ( pMOD->pConf->pconf->lines[0].pSections[nuSectionScenario]->type == TYPE_NOF )
+      {
+        long nuPyro = pMOD->pConf->pconf->lines[0].pSections[nuSectionScenario]->nb_pyrometers - 1;
+        if      ( nuStageScenario == 0 )
+          pValue->dvalue = pSpt->stageSimulationResults.coils[1].calcul.stages.maxSpeed .lines[0].sections[nuSectionScenario].pyrometerTarget[nuPyro];
+        else if ( nuStageScenario == 1 )
+          pValue->dvalue = pSpt->stageSimulationResults.coils[1].calcul.stages.steady   .lines[0].sections[nuSectionScenario].pyrometerTarget[nuPyro];
+        else
+          pValue->dvalue = 0.;
+      }
+      else
+      {
+        if      ( nuStageScenario == 0 )
+          pValue->dvalue = pSpt->stageSimulationResults.coils[1].calcul.stages.maxSpeed .lines[0].sections[nuSectionScenario].stripTarget;
+        else if ( nuStageScenario == 1 )
+          pValue->dvalue = pSpt->stageSimulationResults.coils[1].calcul.stages.steady   .lines[0].sections[nuSectionScenario].stripTarget;
+        else
+          pValue->dvalue = 0.;
+
+      }
+    }
+    else
+      pValue->dvalue = 0.;
+  }
+  else if ( strcmp( pInter->in.Mnemonic, "REFERENCE_MODEL_INPUT" ) == 0 )
+  {
+    if ( nuSectionScenario  < pMOD->pConf->pconf->lines[0].nb_sections )
+    {
+      if      ( nuStageScenario == 0 )
+        pValue->dvalue = pSpt->stageSimulationResults.coils[0].calcul.stages.maxSpeed .lines[0].sections[nuSectionScenario].refparameterModelInput;
+      else if ( nuStageScenario == 1 )
+        pValue->dvalue = pSpt->stageSimulationResults.coils[0].calcul.stages.steady   .lines[0].sections[nuSectionScenario].refparameterModelInput;
+      else
+        pValue->dvalue = pSpt->stageSimulationResults.coils[0].calcul.stages.transient.lines[0].sections[nuSectionScenario].refparameterModelInput;
+    }
+    else
+      pValue->dvalue = 0.;
+  }
+  else if ( strcmp( pInter->in.Mnemonic, "IS_VALID_ZONE_SCN" ) == 0 )
+  {
+    if ( nuSectionScenario  < pMOD->pConf->pconf->lines[0].nb_sections &&
+         nuZoneScenario     < pMOD->pConf->pconf->lines[0].pSections[nuSectionScenario]->nb_zones )
+    {
+      pValue->lvalue = 1;
+      pValue->dvalue = 1;
+    }
+    else
+    {
+      pValue->lvalue = 0;
+      pValue->dvalue = 0;
+    }
+  }
+  else if ( strcmp( pInter->in.Mnemonic, "STRIP01_MODEL_INPUT" ) == 0 )
+  {
+    if ( nuSectionScenario  < pMOD->pConf->pconf->lines[0].nb_sections &&
+         nuZoneScenario     < pMOD->pConf->pconf->lines[0].pSections[nuSectionScenario]->nb_zones )
+    {
+      if      ( nuStageScenario == 0 )
+        pValue->dvalue = pSpt->stageSimulationResults.coils[0].calcul.stages.maxSpeed .lines[0].sections[nuSectionScenario].zonesModelInput[nuZoneScenario];
+      else if ( nuStageScenario == 1 )
+        pValue->dvalue = pSpt->stageSimulationResults.coils[0].calcul.stages.steady   .lines[0].sections[nuSectionScenario].zonesModelInput[nuZoneScenario];
+      else
+        pValue->dvalue = pSpt->stageSimulationResults.coils[0].calcul.stages.transient.lines[0].sections[nuSectionScenario].zonesModelInput[nuZoneScenario];
+    
+      if ( pMOD->pConf->pconf->lines[0].pSections[nuSectionScenario]->type == TYPE_NOF || 
+           pMOD->pConf->pconf->lines[0].pSections[nuSectionScenario]->type == TYPE_RTF )
+        pValue->dvalue = pMOD->pConv->celcius( pValue->dvalue );
+    }
+    else
+      pValue->dvalue = 0.;
+  }
+  else if ( strcmp( pInter->in.Mnemonic, "STRIP02_MODEL_INPUT" ) == 0 )
+  {
+    if ( nuSectionScenario  < pMOD->pConf->pconf->lines[0].nb_sections &&
+         nuZoneScenario     < pMOD->pConf->pconf->lines[0].pSections[nuSectionScenario]->nb_zones )
+    {
+      if      ( nuStageScenario == 0 )
+        pValue->dvalue = pSpt->stageSimulationResults.coils[1].calcul.stages.maxSpeed .lines[0].sections[nuSectionScenario].zonesModelInput[nuZoneScenario];
+      else if ( nuStageScenario == 1 )
+        pValue->dvalue = pSpt->stageSimulationResults.coils[1].calcul.stages.steady   .lines[0].sections[nuSectionScenario].zonesModelInput[nuZoneScenario];
+      else
+        pValue->dvalue = 0.;
+      
+      if ( pMOD->pConf->pconf->lines[0].pSections[nuSectionScenario]->type == TYPE_NOF || 
+           pMOD->pConf->pconf->lines[0].pSections[nuSectionScenario]->type == TYPE_RTF )
+        pValue->dvalue = pMOD->pConv->celcius( pValue->dvalue );
+    }
+    else
+      pValue->dvalue = 0.;
+  }
+  else if ( strcmp( pInter->in.Mnemonic, "STRIP01_DEMAND" ) == 0 )
+  {
+    if ( nuSectionScenario  < pMOD->pConf->pconf->lines[0].nb_sections &&
+         nuZoneScenario     < pMOD->pConf->pconf->lines[0].pSections[nuSectionScenario]->nb_zones )
+    {
+      if      ( nuStageScenario == 0 )
+        pValue->dvalue = pSpt->stageSimulationResults.coils[0].calcul.stages.maxSpeed .lines[0].sections[nuSectionScenario].powerDemand[nuZoneScenario];
+      else if ( nuStageScenario == 1 )
+        pValue->dvalue = pSpt->stageSimulationResults.coils[0].calcul.stages.steady   .lines[0].sections[nuSectionScenario].powerDemand[nuZoneScenario];
+      else
+        pValue->dvalue = pSpt->stageSimulationResults.coils[0].calcul.stages.transient.lines[0].sections[nuSectionScenario].powerDemand[nuZoneScenario];
+    }
+    else
+      pValue->dvalue = 0.;
+  }
+  else if ( strcmp( pInter->in.Mnemonic, "STRIP02_DEMAND" ) == 0 )
+  {
+    if ( nuSectionScenario  < pMOD->pConf->pconf->lines[0].nb_sections &&
+         nuZoneScenario     < pMOD->pConf->pconf->lines[0].pSections[nuSectionScenario]->nb_zones )
+    {
+      if      ( nuStageScenario == 0 )
+        pValue->dvalue = pSpt->stageSimulationResults.coils[1].calcul.stages.maxSpeed .lines[0].sections[nuSectionScenario].powerDemand[nuZoneScenario];
+      else if ( nuStageScenario == 1 )
+        pValue->dvalue = pSpt->stageSimulationResults.coils[1].calcul.stages.steady   .lines[0].sections[nuSectionScenario].powerDemand[nuZoneScenario];
+      else
+        pValue->dvalue = 0.;
+    }
+    else
+      pValue->dvalue = 0.;
+
+    // Make the evolution of index.
+    if ( ++nuZoneScenario >= 30 )
+    {
+      nuZoneScenario = 0;
+      if ( ++nuSectionScenario >= 7 )
+      {
+        nuSectionScenario = 0;
+        nuStageScenario ++;
+      }
+    }
+  }
+  else if ( strcmp( pInter->in.Mnemonic, "SpecificConsumptionALL" ) == 0 )
+  {
+    pValue->dvalue = ( this->specificConsumption[0] + this->specificConsumption[1] ) / pMOD->pPhysic->fuelLHV(0) * 1000.;
+  }
+  else if ( strcmp( pInter->in.Mnemonic, "EfficiencyALL" ) == 0 )
+  {
+    if ( ( this->specificConsumption[0] + this->specificConsumption[1] ) > 0.1 )
+      pValue->dvalue = (  this->efficiency[0] * this->specificConsumption[0] + 
+                          this->efficiency[1] * this->specificConsumption[1] ) / 
+                         ( this->specificConsumption[0] + this->specificConsumption[1] );
+    else
+      pValue->dvalue = 0.;
+  }
+  else if ( strcmp( pInter->in.Mnemonic, "PyrometerHB" ) == 0 )
+  {
+    gblSec.lockAccess();
+    pValue->dvalue = gblSec.pSpe->roofTempHBSetpoint;
+    gblSec.unLockAccess();
+  }
 
   return;		
 }
 
-//============================================================================
+//============================================================================ 
 // SPE_specific: storeValueInMeasurementStructure
 //
 //   Extract the value in the right place from the setpoint structure simulation
@@ -764,47 +1102,374 @@ void SPE_specific::storeValueInMeasurementStructure
     //strcpy( pMea->specific.maNouvelleMesure3, pValue->stringValue);
   }
 
-  //// Coils
-  //else if ( strcmp( pInter->in.Mnemonic, "MaxSpeedPot" ) == 0 )
-  //{
-  //  //memset( pMea->coils[pInter->in.secondIndex].specific.combinaisonIdentifier, 0, DIM_NAMES );
-  //  //strcpy( pMea->coils[pInter->in.secondIndex].specific.combinaisonIdentifier, pValue->stringValue );
-  //  pMea->coils[pInter->in.secondIndex].specific.maxSpeedPot      = pValue->dvalue;
-  //}
-  //else if ( strcmp( pInter->in.Mnemonic, "MinSpeedCoil" ) == 0 )
-  //{
-  //  pMea->coils[pInter->in.secondIndex].specific.minSpeedCoil     = pValue->dvalue;
-  //}
-  //else if ( strcmp( pInter->in.Mnemonic, "MinSpeedDFF" ) == 0 )
-  //{
-  //  pMea->coils[pInter->in.secondIndex].specific.minSpeedDFF      = pValue->dvalue;
-  //}
-  //else if ( strcmp( pInter->in.Mnemonic, "OffsetTempEE" ) == 0 )
-  //{
-  //  pMea->coils[pInter->in.secondIndex].specific.offsetTempEE      = pValue->dvalue;
-  //}
+  // Coils
+  else if ( strcmp( pInter->in.Mnemonic, "COMBINATIONIDENTIFIER" ) == 0 )
+  {
+    memset( pMea->coils[pInter->in.secondIndex].specific.combinaisonIdentifier, 0, DIM_NAMES );
+    strcpy( pMea->coils[pInter->in.secondIndex].specific.combinaisonIdentifier, pValue->stringValue );
+  }
+  else if ( strcmp( pInter->in.Mnemonic, "HEAT_ID" ) == 0 )
+  {
+    memset( pMea->coils[pInter->in.secondIndex].specific.heatID, 0, DIM_NAMES );
+    strcpy( pMea->coils[pInter->in.secondIndex].specific.heatID, pValue->stringValue );
+  }
+  else if ( strcmp( pInter->in.Mnemonic, "PART_NUMBER" ) == 0 )
+  {
+    pMea->coils[pInter->in.secondIndex].specific.partNumber = (long) ( pValue->lvalue );
+  }
+  else if ( strcmp( pInter->in.Mnemonic, "COIL_COUNTER" ) == 0 )
+  {
+    pMea->coils[pInter->in.secondIndex].specific.coilCounter = (long) ( pValue->lvalue );
+  }
+  else if ( strcmp( pInter->in.Mnemonic, "WEIGHT" ) == 0 )
+  {
+    pMea->coils[pInter->in.secondIndex].specific.weight = ( pValue->dvalue );
+  }
+  else if ( strcmp( pInter->in.Mnemonic, "YIELD" ) == 0 )
+  {
+    pMea->coils[pInter->in.secondIndex].specific.yield = ( pValue->dvalue );
+  }
+  else if ( strcmp( pInter->in.Mnemonic, "TENSION_COIL" ) == 0 )
+  {
+    pMea->coils[pInter->in.secondIndex].specific.tension = ( pValue->dvalue );
+  }
 
+  // Sections
+  else if ( strcmp( pInter->in.Mnemonic, "CONSUMPTION_ELECTRICAL" ) == 0 )
+  {
+    // If RTF section index.
+    if ( pInter->out.sectionType == TYPE_RTF ||
+         pInter->out.sectionType == TYPE_SOA ||
+         pInter->out.sectionType == TYPE_SOX 
+        )
+      pMea->sectionsRTF [pInter->out.nu_section].specific.CONSUMPTION_ELECTRICAL    = pValue->dvalue;
+    else if ( pInter->out.sectionType == TYPE_NOF )
+      pMea->sectionsNOF [pInter->out.nu_section].specific.CONSUMPTION_ELECTRICAL    = pValue->dvalue;
+    else if ( pInter->out.sectionType == TYPE_JET )
+      pMea->sectionsJET [pInter->out.nu_section].specific.CONSUMPTION_ELECTRICAL    = pValue->dvalue;
+    else if ( pInter->out.sectionType == TYPE_LYRE )
+      pMea->sectionsLYR [pInter->out.nu_section].specific.CONSUMPTION_ELECTRICAL    = pValue->dvalue;
+    else 
+      pMea->sectionsBASE[pInter->out.nu_section].specific.CONSUMPTION_ELECTRICAL    = pValue->dvalue;
 
+  }
+  else if ( strcmp( pInter->in.Mnemonic, "CONSUMPTION_FUEL" ) == 0 )
+  {
+    // If RTF section index.
+    if ( pInter->out.sectionType == TYPE_RTF ||
+         pInter->out.sectionType == TYPE_SOA ||
+         pInter->out.sectionType == TYPE_SOX 
+        )
+      pMea->sectionsRTF [pInter->out.nu_section].specific.CONSUMPTION_FUEL    = pValue->dvalue;
+    else if ( pInter->out.sectionType == TYPE_NOF )
+      pMea->sectionsNOF [pInter->out.nu_section].specific.CONSUMPTION_FUEL    = pValue->dvalue;
+    else if ( pInter->out.sectionType == TYPE_JET )
+      pMea->sectionsJET [pInter->out.nu_section].specific.CONSUMPTION_FUEL    = pValue->dvalue;
+    else if ( pInter->out.sectionType == TYPE_LYRE )
+      pMea->sectionsLYR [pInter->out.nu_section].specific.CONSUMPTION_FUEL    = pValue->dvalue;
+    else 
+      pMea->sectionsBASE[pInter->out.nu_section].specific.CONSUMPTION_FUEL    = pValue->dvalue;
+  }
+  else if ( strcmp( pInter->in.Mnemonic, "CONSUMPTION_NITROGEN" ) == 0 )
+  {
+    // If RTF section index.
+    if ( pInter->out.sectionType == TYPE_RTF ||
+         pInter->out.sectionType == TYPE_SOA ||
+         pInter->out.sectionType == TYPE_SOX 
+        )
+      pMea->sectionsRTF [pInter->out.nu_section].specific.CONSUMPTION_NITROGEN    = pValue->dvalue;
+    else if ( pInter->out.sectionType == TYPE_NOF )
+      pMea->sectionsNOF [pInter->out.nu_section].specific.CONSUMPTION_NITROGEN    = pValue->dvalue;
+    else if ( pInter->out.sectionType == TYPE_JET )
+      pMea->sectionsJET [pInter->out.nu_section].specific.CONSUMPTION_NITROGEN    = pValue->dvalue;
+    else if ( pInter->out.sectionType == TYPE_LYRE )
+      pMea->sectionsLYR [pInter->out.nu_section].specific.CONSUMPTION_NITROGEN    = pValue->dvalue;
+    else 
+      pMea->sectionsBASE[pInter->out.nu_section].specific.CONSUMPTION_NITROGEN    = pValue->dvalue;
+  }
+  else if ( strcmp( pInter->in.Mnemonic, "CONSUMPTION_HYDROGEN" ) == 0 )
+  {
+    // If RTF section index.
+    if ( pInter->out.sectionType == TYPE_RTF ||
+         pInter->out.sectionType == TYPE_SOA ||
+         pInter->out.sectionType == TYPE_SOX 
+        )
+      pMea->sectionsRTF [pInter->out.nu_section].specific.CONSUMPTION_HYDROGEN    = pValue->dvalue;
+    else if ( pInter->out.sectionType == TYPE_NOF )
+      pMea->sectionsNOF [pInter->out.nu_section].specific.CONSUMPTION_HYDROGEN    = pValue->dvalue;
+    else if ( pInter->out.sectionType == TYPE_JET )
+      pMea->sectionsJET [pInter->out.nu_section].specific.CONSUMPTION_HYDROGEN    = pValue->dvalue;
+    else if ( pInter->out.sectionType == TYPE_LYRE )
+      pMea->sectionsLYR [pInter->out.nu_section].specific.CONSUMPTION_HYDROGEN    = pValue->dvalue;
+    else 
+      pMea->sectionsBASE[pInter->out.nu_section].specific.CONSUMPTION_HYDROGEN    = pValue->dvalue;
+  }
+  else if ( strcmp( pInter->in.Mnemonic, "AIR_TEMPERATURE_ALL" ) == 0 )
+  {
+    // If RTF section index.
+    if ( pInter->out.sectionType == TYPE_RTF ||
+         pInter->out.sectionType == TYPE_SOA ||
+         pInter->out.sectionType == TYPE_SOX 
+        )
+      pMea->sectionsRTF [pInter->out.nu_section].specific.AIR_TEMPERATURE_ALL     = pValue->dvalue;
+    else if ( pInter->out.sectionType == TYPE_NOF )
+      pMea->sectionsNOF [pInter->out.nu_section].specific.AIR_TEMPERATURE_ALL     = pValue->dvalue;
+    else if ( pInter->out.sectionType == TYPE_JET )
+      pMea->sectionsJET [pInter->out.nu_section].specific.AIR_TEMPERATURE_ALL     = pValue->dvalue;
+    else if ( pInter->out.sectionType == TYPE_LYRE )
+      pMea->sectionsLYR [pInter->out.nu_section].specific.AIR_TEMPERATURE_ALL     = pValue->dvalue;
+    else 
+      pMea->sectionsBASE[pInter->out.nu_section].specific.AIR_TEMPERATURE_ALL     = pValue->dvalue;
+  }
 
-  //// Zones
-  //else if ( strcmp( pInter->in.Mnemonic, "MAX_HEAT_DEMAND" ) == 0 )
-  //{
-  //  pMea->specific.zones[pInter->out.nu_direct].maxHeatDemand    = pValue->lvalue;
-  //}
-  //else if ( strcmp( pInter->in.Mnemonic, "MIN_HEAT_DEMAND" ) == 0 )
-  //{
-  //  pMea->specific.zones[pInter->out.nu_direct].minHeatDemand    = pValue->lvalue;
-  //}
-  //
-  //// Other
-  //else if ( strcmp( pInter->in.Mnemonic, "PYROMETER_DFF" ) == 0 )
-  //{
-  //  pMea->specific.PyrometerDFF[pInter->in.firstIndex]  = pValue->dvalue;
-  //}
-  //else if ( strcmp( pInter->in.Mnemonic, "PYRO_SELECTION_DFF" ) == 0 )
-  //{
-  //  pMea->specific.nuPyroDFF                    = pValue->lvalue;
-  //}
+  // Zones
+  else if ( strcmp( pInter->in.Mnemonic, "COIL_L2_IDENTIFIER" ) == 0 )
+  {
+    pMea->specific.zones[pInter->out.nu_direct].COIL_L2_IDENTIFIER    = pValue->lvalue;
+  }
+  else if ( strcmp( pInter->in.Mnemonic, "COIL_PART_NUMBER" ) == 0 )
+  {
+    pMea->specific.zones[pInter->out.nu_direct].COIL_PART_NUMBER    = pValue->lvalue;
+  }
+  else if ( strcmp( pInter->in.Mnemonic, "STRIP_SAMPLE_POSITION" ) == 0 )
+  {
+    pMea->specific.zones[pInter->out.nu_direct].STRIP_SAMPLE_POSITION    = pValue->dvalue;
+  }
+  else if ( strcmp( pInter->in.Mnemonic, "ANALYSIS_CO" ) == 0 )
+  {
+    pMea->specific.zones[pInter->out.nu_direct].ANALYSIS_CO    = pValue->dvalue;
+  }
+  else if ( strcmp( pInter->in.Mnemonic, "ANALYSIS_CO2" ) == 0 )
+  {
+    pMea->specific.zones[pInter->out.nu_direct].ANALYSIS_CO2    = pValue->dvalue;
+  }
+  else if ( strcmp( pInter->in.Mnemonic, "ANALYSIS_H2" ) == 0 )
+  {
+    pMea->specific.zones[pInter->out.nu_direct].ANALYSIS_H2    = pValue->dvalue;
+  }
+  else if ( strcmp( pInter->in.Mnemonic, "ANALYSIS_O2" ) == 0 )
+  {
+    pMea->specific.zones[pInter->out.nu_direct].ANALYSIS_O2    = pValue->dvalue;
+  }
+  else if ( strcmp( pInter->in.Mnemonic, "ANALYSIS_DP" ) == 0 )
+  {
+    pMea->specific.zones[pInter->out.nu_direct].ANALYSIS_DP    = pValue->dvalue;
+  }
+  else if ( strcmp( pInter->in.Mnemonic, "MAX_FLOW" ) == 0 )
+  {
+    pMea->specific.zones[pInter->out.nu_direct].MAX_FLOW    = pValue->dvalue;
+  }
+  else if ( strcmp( pInter->in.Mnemonic, "MIN_FLOW" ) == 0 )
+  {
+    pMea->specific.zones[pInter->out.nu_direct].MIN_FLOW    = pValue->dvalue;
+  }
+  else if ( strcmp( pInter->in.Mnemonic, "MAX_HD" ) == 0 )
+  {
+    pMea->specific.zones[pInter->out.nu_direct].MAX_HD    = pValue->dvalue;
+  }
+  else if ( strcmp( pInter->in.Mnemonic, "MIN_HD" ) == 0 )
+  {
+    pMea->specific.zones[pInter->out.nu_direct].MIN_HD    = pValue->dvalue;
+  }
+  else if ( strcmp( pInter->in.Mnemonic, "READY" ) == 0 )
+  {
+    pMea->specific.zones[pInter->out.nu_direct].READY    = pValue->lvalue;
+  }
+  else if ( strcmp( pInter->in.Mnemonic, "READYBIS" ) == 0 )
+  {
+     //this->bits[pInter->in.firstIndex] = pValue->lvalue;
+  }
+  else if ( strcmp( pInter->in.Mnemonic, "TimeSpan" ) == 0 )
+  {
+    //timeStamp = pValue->lvalue;
+  }
+  else if ( strcmp( pInter->in.Mnemonic, "PZH_TEMP" ) == 0 )
+  {
+    pMea->specific.zones[pInter->out.nu_direct].PZH_TEMP    = pValue->lvalue;
+  }
+  else if ( strcmp( pInter->in.Mnemonic, "SPLIT_RANGE" ) == 0 )
+  {
+    pMea->specific.zones[pInter->out.nu_direct].SPLIT_RANGE  = pValue->dvalue;
+  }	
+  else if ( strcmp( pInter->in.Mnemonic, "OFFSET_STRIP_TT" ) == 0 )
+  {
+    gblSec.lockAccess();
+    gblSec.pSpe->TTStripTempOffset  = pValue->dvalue;
+    gblSec.unLockAccess();
+  }	
+  else if ( strcmp( pInter->in.Mnemonic, "OFFSET_STRIP_HH" ) == 0 )
+  {
+    gblSec.lockAccess();
+    gblSec.pSpe->HHStripTempOffset  = pValue->dvalue;
+    gblSec.unLockAccess();
+  }	
+  else if ( strcmp( pInter->in.Mnemonic, "OFFSET_STRIP_FF" ) == 0 )
+  {
+    gblSec.lockAccess();
+    gblSec.pSpe->FFStripTempOffset  = pValue->dvalue;
+    gblSec.unLockAccess();
+  }	
+  else if ( strcmp( pInter->in.Mnemonic, "OFFSET_STRIP_HB" ) == 0 )
+  {
+    gblSec.lockAccess();
+    gblSec.pSpe->HBStripTempOffset  = pValue->dvalue;
+    gblSec.unLockAccess();
+  }	
+  else if ( strcmp( pInter->in.Mnemonic, "OFFSET_STRIP_CC" ) == 0 )
+  {
+    gblSec.lockAccess();
+    gblSec.pSpe->CCStripTempOffset  = pValue->dvalue;
+    gblSec.unLockAccess();
+  }	
+  else if ( strcmp( pInter->in.Mnemonic, "OFFSET_STRIP_DD" ) == 0 )
+  {
+    gblSec.lockAccess();
+    gblSec.pSpe->DDStripTempOffset  = pValue->dvalue;
+    gblSec.unLockAccess();
+  }	
+  else if ( strcmp( pInter->in.Mnemonic, "TOP_COUNTER_WELD" ) == 0 )
+  {
+    gblSec.lockAccess();
+    gblSec.pSpe->topCounterWeldEvent  = pValue->lvalue;
+    gblSec.unLockAccess();
+  }
+  else if ( strcmp( pInter->in.Mnemonic, "SCENARIO_ID" ) == 0 )
+  {
+    if ( lScenarioIDCurrent < 0 )
+    {
+      lScenarioIDCurrent = pValue->lvalue;
+      time( &recieveTimeScenarioID );
+    }
+    else 
+    {
+      time_t currenTime = 0;
+      time( &currenTime );
+      if ( difftime( currenTime, recieveTimeScenarioID ) > 120 )
+      {
+        bIsScenarioCalculationAUthorized = false;
+        time( &recieveTimeScenarioID );
+        lScenarioIDCurrent = pValue->lvalue;
+      }
+    }
+  }
+
+  // Heat cycle table.
+  else if ( strcmp( pInter->in.Mnemonic, "TOTAL_NUMBER_HC" ) == 0 )
+  {
+    lNbHeatCycleToBeStored = pValue->lvalue;
+    if ( lNbHeatCycleStored <= 0 ) lNbHeatCycleStored = 0;
+    nuSectionHeatCycle = 0;
+
+    if ( lNbHeatCycleStored <= 0 )
+      time( &lastRecievedFirstHCMessage );
+  }
+  else if ( strcmp( pInter->in.Mnemonic, "INDEX_HC" ) == 0 )
+  {
+    lIndexHeatCycle = pValue->lvalue;
+  }
+  else if ( strcmp( pInter->in.Mnemonic, "DATABASE_KEY" ) == 0 )
+  {
+    pHeatCycles[lNbHeatCycleStored]->cycleNumber = pValue->lvalue;
+  }
+  else if ( strcmp( pInter->in.Mnemonic, "USER_CODE" ) == 0 )
+  {
+    long test  = pValue->lvalue;
+  }
+  else if ( strcmp( pInter->in.Mnemonic, "USER_NAME" ) == 0 )
+  {
+    strncpy_s( pHeatCycles[lNbHeatCycleStored]->name, pValue->stringValue, strlen( pValue->stringValue ) );
+  }
+  else if ( strcmp( pInter->in.Mnemonic, "MAX_SPEED" ) == 0 )
+  {
+    pHeatCycles[lNbHeatCycleStored]->speed = pValue->dvalue;
+  }
+  else if ( strcmp( pInter->in.Mnemonic, "IS_DEFAULT" ) == 0 )
+  {
+    pHeatCycles[lNbHeatCycleStored]->bIsDefault = (bool) pValue->lvalue;
+  }
+  else if ( strcmp( pInter->in.Mnemonic, "STRIP_UPPER" ) == 0 )
+  {
+    pHeatCycles[lNbHeatCycleStored]->sections[nuSectionHeatCycle].stripUpper  = pValue->dvalue;
+  }
+  else if ( strcmp( pInter->in.Mnemonic, "STRIP_TARGET" ) == 0 )
+  {
+    pHeatCycles[lNbHeatCycleStored]->sections[nuSectionHeatCycle].stripTarget = pValue->dvalue;
+  }
+  else if ( strcmp( pInter->in.Mnemonic, "STRIP_LOWER" ) == 0 )
+  {
+    pHeatCycles[lNbHeatCycleStored]->sections[nuSectionHeatCycle].stripLower  = pValue->dvalue;
+  }
+  else if ( strcmp( pInter->in.Mnemonic, "MINIMUM_TIME" ) == 0 )
+  {
+    pHeatCycles[lNbHeatCycleStored]->sections[nuSectionHeatCycle].minimumTime  = pValue->dvalue;
+  }
+  else if ( strcmp( pInter->in.Mnemonic, "COOLING_RATE_01" ) == 0 )
+  {
+    pHeatCycles[lNbHeatCycleStored]->sections[nuSectionHeatCycle].zones[0].coolingRate = pValue->dvalue;
+  }
+  else if ( strcmp( pInter->in.Mnemonic, "COOLING_RATE_02" ) == 0 )
+  {
+    pHeatCycles[lNbHeatCycleStored]->sections[nuSectionHeatCycle].zones[1].coolingRate = pValue->dvalue;
+  }
+  else if ( strcmp( pInter->in.Mnemonic, "COOLING_RATE_03" ) == 0 )
+  {
+    pHeatCycles[lNbHeatCycleStored]->sections[nuSectionHeatCycle].zones[2].coolingRate = pValue->dvalue;
+  }
+  else if ( strcmp( pInter->in.Mnemonic, "COOLING_RATE_04" ) == 0 )
+  {
+    pHeatCycles[lNbHeatCycleStored]->sections[nuSectionHeatCycle].zones[3].coolingRate = pValue->dvalue;
+    nuSectionHeatCycle ++;
+    if ( nuSectionHeatCycle == 7 )
+      lNbHeatCycleStored ++;
+  }
+
+  // Coil thermal cycle message.
+  else if ( strcmp( pInter->in.Mnemonic, "COIL_L2_IDENTIFIER_PR" ) == 0 )
+  {
+    // NOT USED
+    long test  = pValue->lvalue;
+  }
+  else if ( strcmp( pInter->in.Mnemonic, "COIL_PART_NUMBER_PR" ) == 0 )
+  {
+
+    long test  = pValue->lvalue;
+  }
+  else if ( strcmp( pInter->in.Mnemonic, "THERMAL_CYCLE_ID" ) == 0 )
+  {
+    // NOT USED
+    long test  = pValue->lvalue;
+  }
+
+  // CC section : damper position.
+  else if ( strcmp( pInter->in.Mnemonic, "DIFFUSER_TRIMMING_INNER" ) == 0 )
+  {
+    long test  = pValue->dvalue;
+    // to be done!!!
+  }
+  else if ( strcmp( pInter->in.Mnemonic, "DIFFUSER_TRIMMING_CENTER" ) == 0 )
+  {
+    long test  = pValue->lvalue;
+    // to be done!!!
+  }
+  else if ( strcmp( pInter->in.Mnemonic, "DIFFUSER_TRIMMING_OUTER" ) == 0 )
+  {
+    long test  = pValue->lvalue;
+    // to be done!!!
+  }
+  else if ( strcmp( pInter->in.Mnemonic, "SPEED_SET_OFFSET" ) == 0 )
+  {
+    pMea->specific.SPEED_SET_OFFSET = pValue->dvalue;
+  }	
+  else if ( strcmp( pInter->in.Mnemonic, "TOP_COUNTER" ) == 0 )
+  {
+    long test = pValue->lvalue;
+    test = 0;
+  }
+  else if ( strcmp( pInter->in.Mnemonic, "BOTTOM_COUNTER" ) == 0 )
+  {
+    long test = pValue->lvalue;
+    test = 0;
+  }
 
   return;
 }
@@ -888,40 +1553,418 @@ bool SPE_specific::messageMeasurementsTreatment
                                 ( bool                       hasSimulationMode, 
                                   struct MOD_HV_measures *   pMessageRecieve,
                                   bool                       &hasRecievedAllmessages,
-                                  bool                       &authorizedToContinue
-                                , struct GEN_utility *        pGEN )
+                                  bool                       &authorizedToContinue,
+                                  struct GEN_utility *       pGEN )
 {
   // We manually store the data.
-  bool doRegularStorage   = true;
-  authorizedToContinue    = true;
-  hasRecievedAllmessages  = true;
-  //long            nbAuthorization   = 1;
-  //static  double  oldValue          = 0;
-  //
-  //this->hasRecievedAllmessages[0] = true;
-  //authorizedToContinue            = true;
-  //
-  ////// Watch dog message.
-  ////if      ( pMessageRecieve->measurementMessage == 1 )
-  ////{
-  ////  this->hasRecievedAllmessages[0] = true;
-  ////  authorizedToContinue            = true;
-  ////
-  ////
-  ////  // Effectuer ici l'enregistrement de toutes les données spécifique dans les structures.
-  ////  // Effectuer aussi le traitement des données spécifique: sélection du pyromètre etc...
-  ////
-  ////
-  ////  pGEN->pHvm->phvm->meaSptCal.measure.specific = pMessageRecieve->specific;
-  ////  
-  ////
-  ////} // END: Message recieved.
-  //
-  //hasRecievedAllmessages = true;
-  //for ( long i = 0; i < nbAuthorization; i++ )
-  //{
-  //  hasRecievedAllmessages &= this->hasRecievedAllmessages[i];
-  //}
+  bool doRegularStorage   = false;
+  authorizedToContinue    = false;
+  //hasRecievedAllmessages  = true;
+
+  if ( hasSimulationMode ) this->useFixedDFFEmissivity = false;
+
+  bool forceStaticCalculation = false;
+  
+  //------------------------------------------------------------------------------------
+  // Split range definition.
+  // MAX.
+  this->splitRangeDFFMax[0] = 0.;
+  this->splitRangeDFFMax[1] = 0.;
+  this->splitRangeDFFMax[2] = 0.;
+  this->splitRangeDFFMax[3] = 0.;
+  this->splitRangeDFFMax[4] = 100.;
+  this->splitRangeDFFMax[5] = 85.;
+  this->splitRangeDFFMax[6] = 75.;
+  this->splitRangeDFFMax[7] = 40.;
+
+  // MIN.
+  this->splitRangeDFFMin[0] = 0.;
+  this->splitRangeDFFMin[1] = 0.;
+  this->splitRangeDFFMin[2] = 0.;
+  this->splitRangeDFFMin[3] = 0.;
+  this->splitRangeDFFMin[4] = 55.;
+  this->splitRangeDFFMin[5] = 40.;
+  this->splitRangeDFFMin[6] = 15.;
+  this->splitRangeDFFMin[7] = 0.;
+  
+  //------------------------------------------------------------------------------------
+  // Watch dog message.
+  if      ( pMessageRecieve->measurementMessage == 4000 )
+  {
+    // Store controls.
+    pGEN->pHvm->phvm->meaSptCal.measure.line.speedControl       = pMessageRecieve->line.speedControl;
+    pGEN->pHvm->phvm->meaSptCal.measure.sectionsNOF [0].control = pMessageRecieve->sectionsNOF [0].control;
+    pGEN->pHvm->phvm->meaSptCal.measure.sectionsRTF [0].control = pMessageRecieve->sectionsRTF [0].control;
+    pGEN->pHvm->phvm->meaSptCal.measure.sectionsRTF [1].control = pMessageRecieve->sectionsRTF [1].control;
+    pGEN->pHvm->phvm->meaSptCal.measure.sectionsJET [0].control = pMessageRecieve->sectionsJET [0].control;
+    pGEN->pHvm->phvm->meaSptCal.measure.sectionsJET [1].control = pMessageRecieve->sectionsJET [1].control;
+    pGEN->pHvm->phvm->meaSptCal.measure.sectionsBASE[0].control = pMessageRecieve->sectionsBASE[0].control;
+
+    //pGEN->pHvm->phvm->meaSptCal.measure.sectionsNOF [0].control = true;
+    //pGEN->pHvm->phvm->meaSptCal.measure.sectionsRTF [0].control = true;
+    //pGEN->pHvm->phvm->meaSptCal.measure.sectionsJET [0].control = true;
+
+    this->hasRecievedAllmessages[0] = true;
+    authorizedToContinue = true;
+  }
+  
+  //------------------------------------------------------------------------------------
+  // RR+FF
+  else if ( pMessageRecieve->measurementMessage == 4050 )
+  {
+    // For all pyrometers.
+    for ( long i = 0; i < pGEN->pConf->pconf->sectionsNOF[0].nb_pyrometers; i++ )
+    {
+      long nuPyro = pGEN->pConf->pconf->sectionsNOF[0].pPyroElements[i]->pPyrometer->index;
+      pGEN->pHvm->phvm->meaSptCal.measure.pyrometers[nuPyro] = pMessageRecieve->pyrometers[nuPyro];
+
+      //if ( i == 1 )
+      //{
+      //  double temp = pGEN->pHvm->phvm->meaSptCal.measure.pyrometers[nuPyro].temperature;
+      //  this->DFFTemperature = pGEN->pHvm->phvm->meaSptCal.measure.pyrometers[nuPyro].temperature;
+      //  temp = pGEN->pConv->celcius( temp );
+      //  if ( !hasSimulationMode ) 
+      //  {
+      //    if ( !this->useFixedDFFEmissivity )
+      //    {
+      //      long    nuCoilOrdered   = pGEN->pHvm->phvm->meaSptCal.calcul.sectionsNOF[0].tracking.nu_coilInOrdered;
+      //      if ( pGEN->pHvm->phvm->coilQueue.pCoilOrdered[nuCoilOrdered] != nullptr )
+      //      {
+      //        double  thickness       = pGEN->pHvm->phvm->coilQueue.pCoilOrdered[nuCoilOrdered]->data.thickness;
+      //        double  maxThickness    = 1.00;
+      //        double  minThickness    = 0.25;
+      //        double  maxFactor       = 0.89;
+      //        double  minFactor       = 0.63;
+      //
+      //        double  temporyA        = ( maxFactor - minFactor ) / ( maxThickness - minThickness );
+      //        double  factor          = temporyA * ( thickness * 1000. ) + ( maxFactor - maxThickness * temporyA );
+      //        factor = min( max( factor, minFactor ), maxFactor );
+      //        temp = temp * factor;
+      //      }
+      //      else
+      //        temp = temp * 0.85 ;
+      //    }
+      //    else
+      //    {
+      //      if ( onLiveDynModelDFFpyroTemp > pGEN->pMath->epsilon )
+      //      {
+      //        this->factorDFFPyrometer = pGEN->pConv->celcius( onLiveDynModelDFFpyroTemp ) / temp;
+      //        temp = pGEN->pConv->celcius( onLiveDynModelDFFpyroTemp );
+      //      }
+      //      else
+      //        temp = temp * 0.85 ;
+      //    }
+      //  }
+      //  pGEN->pHvm->phvm->meaSptCal.measure.pyrometers[nuPyro].temperature = pGEN->pConv->kelvin( temp );
+      //}
+    }
+
+    // For all zones.
+    for ( long i = 0; i < pGEN->pConf->pconf->nb_zonesNOF; i++ )
+    {
+      pGEN->pHvm->phvm->meaSptCal.measure.zonesNOF [i] =  pMessageRecieve->zonesNOF [i];
+
+      //if ( i == 7  && false ) //|| i == 6 || i == 5 || i == 4
+      //{
+      //  pGEN->pHvm->phvm->meaSptCal.measure.zonesNOF [i].gasFlowRate *= 0.94;
+      //  pGEN->pHvm->phvm->meaSptCal.measure.zonesNOF [i].airFlowRate *= 0.94;
+      //}
+
+      // Security for remaining low gas flow.
+      if ( pGEN->pHvm->phvm->meaSptCal.measure.zonesNOF [i].gasFlowRate < 24. / 3600. && !this->hasSimulationMode )
+        pGEN->pHvm->phvm->meaSptCal.measure.zonesNOF [i].gasFlowRate = 0.;
+
+      double lhv = pGEN->pPhysic->fuelLHV( 0 );
+      if ( pGEN->pConf->pconf->zonesNOF[i].Power > pGEN->pMath->epsilon )
+        pGEN->pHvm->phvm->meaSptCal.measure.zonesNOF [i].demandPercentage =  pGEN->pHvm->phvm->meaSptCal.measure.zonesNOF [i].gasFlowRate * 100. 
+                                                                           / pGEN->pConf->pconf->zonesNOF[i].Power * lhv;
+      
+      // For all thermocouple contains.
+      for ( long iTh = 0; iTh < pGEN->pConf->pconf->zonesNOF[i].nb_thermocouples; iTh++ )
+      {
+        long nuThermo = pGEN->pConf->pconf->zonesNOF[i].pThermocouples[iTh]->index;
+        pGEN->pHvm->phvm->meaSptCal.measure.thermocouples[nuThermo] = pMessageRecieve->thermocouples[nuThermo];
+      }
+
+      long nuZone = pGEN->pConf->pconf->zonesNOF[i].indexGlobal;
+
+      double oldValue = pGEN->pHvm->phvm->meaSptCal.measure.specific.zones[nuZone].MAX_FLOW;
+      double newValue = pMessageRecieve->specific.zones[nuZone].MAX_FLOW / 100. * pGEN->pConf->pconf->zonesNOF[i].Power / lhv;
+      forceStaticCalculation = forceStaticCalculation || abs ( oldValue - newValue ) > 10. / 3600.;
+
+      pGEN->pHvm->phvm->meaSptCal.measure.specific.zones[nuZone] = pMessageRecieve->specific.zones[nuZone];
+      pGEN->pHvm->phvm->meaSptCal.measure.specific.zones[nuZone].READY = !pGEN->pHvm->phvm->meaSptCal.measure.specific.zones[nuZone].READY;
+
+      // Get parameters.
+      struct MOD_HV_Parameter   parameter;
+      pGEN->pHvm->getParameters( &parameter, false );
+
+      // Store one parameter coefficient.
+      coefTuningFixDFFEmissivity = parameter.spareDouble2[0];
+
+      // If power exists.
+      if ( pGEN->pConf->pconf->zonesNOF[i].Power > 0. )
+      {
+        pGEN->pHvm->phvm->meaSptCal.measure.specific.zones[nuZone].MAX_FLOW = pGEN->pHvm->phvm->meaSptCal.measure.specific.zones[nuZone].MAX_FLOW / 100. 
+                                                                            * pGEN->pConf->pconf->zonesNOF[i].Power / lhv; 
+
+        if ( pGEN->pHvm->phvm->meaSptCal.measure.zonesNOF [5].gasFlowRate > 40. / 3600. && pGEN->pHvm->phvm->meaSptCal.measure.zonesNOF [6].gasFlowRate < 20. / 3600. && i == 6 )
+          pGEN->pHvm->phvm->meaSptCal.measure.specific.zones[nuZone].MAX_FLOW = 0.;
+
+        if ( pGEN->pHvm->phvm->meaSptCal.measure.zonesNOF [4].gasFlowRate > 40. / 3600. && pGEN->pHvm->phvm->meaSptCal.measure.zonesNOF [5].gasFlowRate < 20. / 3600. && i == 5 )
+          pGEN->pHvm->phvm->meaSptCal.measure.specific.zones[nuZone].MAX_FLOW = 0.;
+
+        if ( pGEN->pHvm->phvm->meaSptCal.measure.zonesNOF [4].gasFlowRate > 40. / 3600. && pGEN->pHvm->phvm->meaSptCal.measure.zonesNOF [6].gasFlowRate < 20. / 3600. && i == 6 )
+          pGEN->pHvm->phvm->meaSptCal.measure.specific.zones[nuZone].MAX_FLOW = 0.;
+
+        double maxGasFlow = pGEN->pHvm->phvm->meaSptCal.measure.specific.zones[nuZone].MAX_FLOW;
+        if ( ( maxGasFlow <= pGEN->pMath->epsilon && i != 6 && i != 5 ) || hasSimulationMode )
+          maxGasFlow = pGEN->pConf->pconf->zonesNOF[i].Power / lhv; 
+        parameter.zones[nuZone].maximumPower = maxGasFlow * lhv;
+
+        parameter.zones[nuZone].maximumHeatDemand  = maxGasFlow / ( pGEN->pConf->pconf->zonesNOF[i].Power / lhv ) * 100.;
+        parameter.zones[nuZone].minimumHeatDemand  = 20.;
+
+        // Lambda.
+        if ( pGEN->pHvm->phvm->meaSptCal.measure.zonesNOF [i].gasFlowRate > 0.0001 && !hasSimulationMode )
+          pGEN->pHvm->phvm->meaSptCal.measure.zonesNOF [i].lambda = pGEN->pHvm->phvm->meaSptCal.measure.zonesNOF [i].airFlowRate 
+                                                                  / pGEN->pHvm->phvm->meaSptCal.measure.zonesNOF [i].gasFlowRate 
+                                                                  / pGEN->pPhysic->fuelVa( (long) 0, 1. );   
+        else
+          pGEN->pHvm->phvm->meaSptCal.measure.zonesNOF [i].lambda = 1.; // Air gas ratio set to 1. as default. to avoid any issue on calculation.
+
+        bool skjdfkfkdslkdnfsdfsl = true;
+      }
+      else
+        pGEN->pHvm->phvm->meaSptCal.measure.zonesNOF [i].lambda = 1.;
+
+      pGEN->pHvm->phvm->meaSptCal.measure.zonesNOF [i].lambda = min( max( pGEN->pHvm->phvm->meaSptCal.measure.zonesNOF [i].lambda, 0.8 ), 1.2 );
+
+      if ( !hasSimulationMode )
+        pGEN->pHvm->phvm->meaSptCal.measure.zonesNOF [i].airTemperature = pGEN->pHvm->phvm->meaSptCal.sectionsNOF [0].pMeasure->specific.AIR_TEMPERATURE_ALL;
+      else 
+        pGEN->pHvm->phvm->meaSptCal.measure.zonesNOF [i].airTemperature = pGEN->pConv->kelvin( 200. );
+      if ( i == 7 )
+        pGEN->pHvm->phvm->meaSptCal.measure.zonesNOF [i].airTemperature = pGEN->pConv->kelvin( 20. );
+
+      
+
+      // Store parameters.
+      pGEN->pHvm->writeParameters( &parameter, false );
+    }
+
+    pGEN->pHvm->phvm->meaSptCal.measure.sectionsNOF[0].specific = pMessageRecieve->sectionsNOF[0].specific;
+    
+    this->hasRecievedAllmessages[1] = true;
+  }
+  //------------------------------------------------------------------------------------
+  // TT && HH.. BE AWARE TT has 3 confugure zones but first HH zone is recieved with the messsage.
+  else if ( pMessageRecieve->measurementMessage == 4051 ||
+            pMessageRecieve->measurementMessage == 4052 )
+  {
+    long nuSectionIntype = 0;
+
+    if      ( pMessageRecieve->measurementMessage == 4051 ) nuSectionIntype = 0; // TT
+    else if ( pMessageRecieve->measurementMessage == 4052 ) nuSectionIntype = 1; // HH
+
+    if      ( pMessageRecieve->measurementMessage == 4051 )
+    {
+      //// For all pyrometers.
+      //for ( long i = 0; i < pGEN->pConf->pconf->sectionsRTF[nuSectionIntype].nb_pyrometers; i++ )
+      //{
+      //  long nuPyro = pGEN->pConf->pconf->sectionsRTF[nuSectionIntype].pPyroElements[i]->pPyrometer->index;
+      //  pGEN->pHvm->phvm->meaSptCal.measure.pyrometers[nuPyro] = pMessageRecieve->pyrometers[nuPyro];
+      //}
+      long nuPyro = pGEN->pConf->pconf->sectionsRTF[nuSectionIntype].pPyroElements[0]->pPyrometer->index;
+      pGEN->pHvm->phvm->meaSptCal.measure.pyrometers[nuPyro] = pMessageRecieve->pyrometers[nuPyro];
+
+      // Save also next pyro.
+      pGEN->pHvm->phvm->meaSptCal.measure.pyrometers[nuPyro + 1] = pMessageRecieve->pyrometers[nuPyro + 1];
+    }
+    else
+    {
+      // We only save last pyro.
+      long nuPyro = pGEN->pConf->pconf->sectionsRTF[nuSectionIntype].pPyroElements[1]->pPyrometer->index;
+      pGEN->pHvm->phvm->meaSptCal.measure.pyrometers[nuPyro] = pMessageRecieve->pyrometers[nuPyro];
+    }
+
+    long nuFirst = 0;
+    long nuLast  = 0;
+    if ( pMessageRecieve->measurementMessage == 4051 )  nuFirst = 0;
+    else                                                nuFirst = 1;
+    if ( pMessageRecieve->measurementMessage == 4051 )  nuLast  = 1;
+    else                                                nuLast  = 0;
+    
+    long nuZoneGlobal = -1;
+    long nuZoneInType = -1;
+    // For all zones.
+    for ( long i = nuFirst; i < pGEN->pConf->pconf->sectionsRTF[nuSectionIntype].nb_zones + nuLast; i++ )
+    {
+      if ( pMessageRecieve->measurementMessage == 4051 && i == pGEN->pConf->pconf->sectionsRTF[nuSectionIntype].nb_zones )
+      {
+        nuZoneGlobal += 1;
+        nuZoneInType += 1;
+      }
+      else
+      {
+        nuZoneGlobal = pGEN->pConf->pconf->sectionsRTF[nuSectionIntype].pZones[i]->indexGlobal;
+        nuZoneInType = pGEN->pConf->pconf->sectionsRTF[nuSectionIntype].pZones[i]->indexType;
+      }
+
+      pGEN->pHvm->phvm->meaSptCal.measure.zonesRTF [nuZoneInType] =  pMessageRecieve->zonesRTF [nuZoneInType];
+
+      // Store parameters.
+      struct MOD_HV_Parameter   parameter;
+      pGEN->pHvm->getParameters( &parameter, false );
+
+      double toto = 0.;
+      double maxHD = pMessageRecieve->specific.zones[nuZoneGlobal].MAX_HD * 1.0; 
+      
+      if ( maxHD < pGEN->pMath->epsilon )
+        maxHD = 100.;
+
+      if ( hasSimulationMode )
+        maxHD = 100.;
+
+      parameter.zones[nuZoneGlobal].maximumPower       = maxHD / 100. * pGEN->pConf->pconf->zonesRTF[nuZoneInType].Power;
+      parameter.zones[nuZoneGlobal].maximumHeatDemand  = maxHD;
+      parameter.zones[nuZoneGlobal].minimumHeatDemand  = 0.;
+      if ( pMessageRecieve->specific.zones[nuZoneGlobal].PZH_TEMP > pGEN->pMath->epsilon && !hasSimulationMode )
+      {
+        double oldValue = parameter.zones[nuZoneGlobal].maximumTemperature;
+        double newValue = pGEN->pConv->kelvin( pMessageRecieve->specific.zones[nuZoneGlobal].PZH_TEMP ) - 10.;
+        forceStaticCalculation = forceStaticCalculation || abs ( oldValue - newValue ) > 5.;
+        parameter.zones[nuZoneGlobal].maximumTemperature = pGEN->pConv->kelvin( pMessageRecieve->specific.zones[nuZoneGlobal].PZH_TEMP ) 
+                                                           - 10.; // We retrieve 10 degrees to get some margin.
+      }
+      else 
+        parameter.zones[nuZoneGlobal].maximumTemperature = pGEN->pConv->kelvin( 930. );
+
+      // Store parameters.
+      pGEN->pHvm->writeParameters( &parameter, false );
+
+      if ( pMessageRecieve->measurementMessage == 4051 )
+      {
+        double lhv = pGEN->pPhysic->fuelLHV( 0 );
+        if ( pGEN->pConf->pconf->zonesRTF[nuZoneInType].Power > pGEN->pMath->epsilon )
+          pGEN->pHvm->phvm->meaSptCal.measure.zonesRTF [nuZoneInType].demandPercentage = 
+                    pGEN->pHvm->phvm->meaSptCal.measure.zonesRTF [nuZoneInType].gasFlowRate * 100. 
+                  / pGEN->pConf->pconf->zonesRTF[nuZoneInType].Power * lhv;
+      }
+      
+      // For all thermocouple contains.
+      for ( long iTh = 0; iTh < pGEN->pConf->pconf->zonesRTF[nuZoneInType].nb_thermocouples; iTh++ )
+      {
+        long nuThermo = pGEN->pConf->pconf->zonesRTF[nuZoneInType].pThermocouples[iTh]->index;
+        pGEN->pHvm->phvm->meaSptCal.measure.thermocouples[nuThermo] = pMessageRecieve->thermocouples[nuThermo];
+      }
+
+      pGEN->pHvm->phvm->meaSptCal.measure.specific.zones[nuZoneGlobal] = pMessageRecieve->specific.zones[nuZoneGlobal];
+      pGEN->pHvm->phvm->meaSptCal.measure.specific.zones[nuZoneGlobal].READY = 
+        !pGEN->pHvm->phvm->meaSptCal.measure.specific.zones[nuZoneGlobal].READY;
+    }
+    
+    pGEN->pHvm->phvm->meaSptCal.measure.sectionsRTF[nuSectionIntype].specific = 
+      pMessageRecieve->sectionsRTF[nuSectionIntype].specific;
+    
+    if      ( pMessageRecieve->measurementMessage == 4051 ) this->hasRecievedAllmessages[2] = true; // TT
+    else if ( pMessageRecieve->measurementMessage == 4052 ) this->hasRecievedAllmessages[3] = true; // HH
+
+  }
+  //------------------------------------------------------------------------------------
+  // CC + DD
+  else if ( pMessageRecieve->measurementMessage == 4053 ||
+            pMessageRecieve->measurementMessage == 4055 )
+  {
+    long nuSectionIntype = 0;
+
+    if      ( pMessageRecieve->measurementMessage == 4053 ) nuSectionIntype = 0; // CC
+    else if ( pMessageRecieve->measurementMessage == 4055 ) nuSectionIntype = 1; // DD
+
+    // For all pyrometers.
+    for ( long i = 0; i < pGEN->pConf->pconf->sectionsJET[nuSectionIntype].nb_pyrometers; i++ )
+    {
+      long nuPyro = pGEN->pConf->pconf->sectionsJET[nuSectionIntype].pPyroElements[i]->pPyrometer->index;
+      pGEN->pHvm->phvm->meaSptCal.measure.pyrometers[nuPyro] = pMessageRecieve->pyrometers[nuPyro];
+    }
+    
+    // Store parameters.
+    struct MOD_HV_Parameter   parameter;
+    pGEN->pHvm->getParameters( &parameter, false );
+
+    // For all zones.
+    for ( long i = 0; i < pGEN->pConf->pconf->sectionsJET[nuSectionIntype].nb_zones; i++ )
+    {
+      long nuZoneGlobal = pGEN->pConf->pconf->sectionsJET[nuSectionIntype].pZones[i]->indexGlobal;
+      long nuZoneInType = pGEN->pConf->pconf->sectionsJET[nuSectionIntype].pZones[i]->indexType;
+
+      pGEN->pHvm->phvm->meaSptCal.measure.zonesJET [nuZoneInType] =  pMessageRecieve->zonesJET [nuZoneInType];
+
+      pGEN->pHvm->phvm->meaSptCal.measure.specific.zones[nuZoneGlobal] = pMessageRecieve->specific.zones[nuZoneGlobal];
+      pGEN->pHvm->phvm->meaSptCal.measure.specific.zones[nuZoneGlobal].READY = 
+        !pGEN->pHvm->phvm->meaSptCal.measure.specific.zones[nuZoneGlobal].READY;
+
+      parameter.zones[nuZoneGlobal].maximumHeatDemand  = 100.;
+      parameter.zones[nuZoneGlobal].minimumHeatDemand  = 0.;
+
+      if      ( pMessageRecieve->measurementMessage == 4053 ) parameter.zones[nuZoneGlobal].jetBlowingTemperature = pMOD->pConv->kelvin( 85. );
+      else                                                    parameter.zones[nuZoneGlobal].jetBlowingTemperature = pMOD->pConv->kelvin( 30. );
+    }
+    
+    pGEN->pHvm->phvm->meaSptCal.measure.sectionsJET[nuSectionIntype].specific = 
+      pMessageRecieve->sectionsJET[nuSectionIntype].specific;
+
+    if      ( pMessageRecieve->measurementMessage == 4053 ) pGEN->pHvm->phvm->meaSptCal.sectionsJET[nuSectionIntype].pMeasure->h2Rate = 5.;
+    else                                                    pGEN->pHvm->phvm->meaSptCal.sectionsJET[nuSectionIntype].pMeasure->h2Rate = 0.;
+
+    // Store parameters.
+    pGEN->pHvm->writeParameters( &parameter, false );
+
+    
+    if      ( pMessageRecieve->measurementMessage == 4053 ) this->hasRecievedAllmessages[4] = true; // CC
+    else if ( pMessageRecieve->measurementMessage == 4055 ) this->hasRecievedAllmessages[5] = true; // DD
+  }
+  //------------------------------------------------------------------------------------
+  // EE
+  else if ( pMessageRecieve->measurementMessage == 4054 )
+  {
+    // For all pyrometers.
+    for ( long i = 0; i < pGEN->pConf->pconf->sectionsBASE[0].nb_pyrometers; i++ )
+    {
+      long nuPyro = pGEN->pConf->pconf->sectionsBASE[0].pPyroElements[i]->pPyrometer->index;
+      pGEN->pHvm->phvm->meaSptCal.measure.pyrometers[nuPyro] = pMessageRecieve->pyrometers[nuPyro];
+    }
+
+    
+    // For all zones.
+    for ( long i = 0; i < pGEN->pConf->pconf->nb_zonesBASE; i++ )
+    {
+      pGEN->pHvm->phvm->meaSptCal.measure.zonesBASE [i] =  pMessageRecieve->zonesBASE [i];
+
+      long nuZone = pGEN->pConf->pconf->zonesBASE[i].indexGlobal;
+      pGEN->pHvm->phvm->meaSptCal.measure.specific.zones[nuZone] = pMessageRecieve->specific.zones[nuZone];
+    }
+    
+    pGEN->pHvm->phvm->meaSptCal.measure.sectionsBASE[0].specific = pMessageRecieve->sectionsBASE[0].specific;
+    
+    //this->hasRecievedAllmessages[4] = true;
+  }
+  //------------------------------------------------------------------------------------
+  // Line speed
+  else if ( pMessageRecieve->measurementMessage == 4002 )
+  {
+    pGEN->pHvm->phvm->meaSptCal.measure.line.speed              = pMessageRecieve->line.speed;
+    pGEN->pHvm->phvm->meaSptCal.measure.line.operatorSpeedLimit = pMessageRecieve->line.operatorSpeedLimit;
+  }
+
+  hasRecievedAllmessages = true;
+  for ( long i = 0; i < 6; i++ )
+  {
+    hasRecievedAllmessages &= this->hasRecievedAllmessages[i];
+  }
+
+  // If static calculation requiered.
+  if ( forceStaticCalculation ) pGEN->pHvm->setParameterForceStaticCalculation( );
 
   return doRegularStorage;
 }
@@ -950,34 +1993,262 @@ void SPE_specific::coilMessageRecieved
 {
   char traceTempo [DIM_TRACES + 1] = {0};
 
-  //// Coils message.
-  //if      ( pMessageRecieve->measurementMessage == 4001 )
-  //{
-  //  
-  //}
-  //
-  //// Event welding.
-  //else if ( pMessageRecieve->measurementMessage == 4002 )
-  //{
-  // 
-  //}
-  //// Event weld entry.
-  //else if ( pMessageRecieve->measurementMessage == 4003 )
-  //{
-  //  
-  //}
-  //// Event weld exit.
-  //else if ( pMessageRecieve->measurementMessage == 4004 )
-  //{
-  //  
-  //}
-
-  for ( long iCoil = 0; iCoil < DIM_COILS; iCoil++ )
+  // Coils message.
+  if      ( pMessageRecieve->measurementMessage == 4001 )
   {
-    pGEN->pHvm->phvm->meaSptCal.measure.coilsBuffer[iCoil] = pMessageRecieve->coils[iCoil];
+    //------------------------------------------------------------------------------------
+    // Get parameters maximum speed ramp.
+    double speedPercentageQualityOffset = pGEN->pHvm->getParameterSpeedPercentQuaOffset( );
+    speedPercentageQualityOffset = min( max( speedPercentageQualityOffset, 0. ), 30. );
+    speedPercentageQualityOffset = speedPercentageQualityOffset / 100.;
+
+    // Regular storage.
+    for ( long i_coil = 0; i_coil < DIM_COILS; i_coil++ )
+    {
+      memset( &pGEN->pHvm->phvm->meaSptCal.measure.coilsBuffer[i_coil], 0, sizeof(struct MOD_HV_coil_data) );
+      if ( pMessageRecieve->coils[i_coil].length < 1. ) pMessageRecieve->coils[i_coil].length = 3000.;
+      pGEN->pHvm->phvm->meaSptCal.measure.coilsBuffer[i_coil] = pMessageRecieve->coils[i_coil];
+      
+      pGEN->pHvm->phvm->meaSptCal.measure.coilsBuffer[i_coil].maxSpeedQuality = pGEN->pHvm->phvm->meaSptCal.measure.coilsBuffer[i_coil].speedLimit;
+      //if ( !hasSimulationMode )
+      //{
+      //  if      ( pGEN->pHvm->phvm->meaSptCal.measure.coilsBuffer[i_coil].thickness < 0.4 / 1000.)    pGEN->pHvm->phvm->meaSptCal.measure.coilsBuffer[i_coil].maxSpeedQuality *= 1.00;
+      //  else if ( pGEN->pHvm->phvm->meaSptCal.measure.coilsBuffer[i_coil].thickness > 0.8 / 1000.&&
+      //            pGEN->pHvm->phvm->meaSptCal.measure.coilsBuffer[i_coil].thickness < 1.0 / 1000.)    pGEN->pHvm->phvm->meaSptCal.measure.coilsBuffer[i_coil].maxSpeedQuality *= ( 1.0 + speedPercentageQualityOffset * 
+      //                                                                                      ( pGEN->pHvm->phvm->meaSptCal.measure.coilsBuffer[i_coil].thickness * 1000. - 0.8  ) / ( 1.0 - 0.8 ) );
+      //  else if ( pGEN->pHvm->phvm->meaSptCal.measure.coilsBuffer[i_coil].thickness >= 1.0 / 1000. )  pGEN->pHvm->phvm->meaSptCal.measure.coilsBuffer[i_coil].maxSpeedQuality *= ( 1. + speedPercentageQualityOffset );
+      //  
+      //}
+    }
+    
+    sprintf( traceTempo, "coilMessageRecieved: coil MSG    ID 0 = %s. ID 1 = %s. ID 2 = %s. ID 3 = %s.", 
+             pMessageRecieve->coils[0].entryIdentity, 
+             pMessageRecieve->coils[1].entryIdentity, 
+             pMessageRecieve->coils[2].entryIdentity, 
+             pMessageRecieve->coils[3].entryIdentity );
+    //utl.writeTrace( traceFilePointer		  // Entry: File pointer.
+    //              , traceTempo            // Entry: Trace string.
+    //              );
+
+    if ( hasSimulationMode ) return;
+    
+    // If the two first coil are different and there were not before the weld has been created.
+    if ( strncmp( pGEN->pHvm->phvm->meaSptCal.measure.coilsBuffer[0].entryIdentity, pGEN->pHvm->phvm->meaSptCal.measure.coilsBuffer[1].entryIdentity, strlen( pGEN->pHvm->phvm->meaSptCal.measure.coilsBuffer[1].entryIdentity ) ) != 0 &&
+         !twoFirstIDDifferent )
+    {
+      // Find second coil in stack.
+      for ( long i_coil = 0; i_coil < DIM_COILS; i_coil++ )
+      {
+        if ( strncmp( pGEN->pHvm->phvm->coilQueue.coils[i_coil].data.entryIdentity, pGEN->pHvm->phvm->meaSptCal.measure.coilsBuffer[1].entryIdentity, strlen( pGEN->pHvm->phvm->meaSptCal.measure.coilsBuffer[1].entryIdentity ) ) == 0 )
+        {
+          //time( &pGEN->pHvm->phvm->coilQueue.coils[i_coil].calcul.specific.weldingTime );
+          break;
+        }
+      }
+    }
+
+    twoFirstIDDifferent = strncmp( pGEN->pHvm->phvm->meaSptCal.measure.coilsBuffer[0].entryIdentity, pGEN->pHvm->phvm->meaSptCal.measure.coilsBuffer[1].entryIdentity, strlen( pGEN->pHvm->phvm->meaSptCal.measure.coilsBuffer[1].entryIdentity ) ) != 0;
+
+    // If not intialize what to have 2 different identities.
+    if ( !coilBufferStackInitialize && 
+         strncmp( pGEN->pHvm->phvm->meaSptCal.measure.coilsBuffer[0].entryIdentity, pGEN->pHvm->phvm->meaSptCal.measure.coilsBuffer[1].entryIdentity, strlen( pGEN->pHvm->phvm->meaSptCal.measure.coilsBuffer[1].entryIdentity ) ) != 0 )
+    {
+      coilBufferStackInitialize = true;
+      strcpy_s( traceTempo, DIM_PATH, "coilMessageRecieved: coilBufferStackInitialize." );
+      pGEN->pUtl->writeTrace( traceFilePointer		  // Entry: File pointer.
+                            , traceTempo            // Entry: Trace string.
+                            );
+
+    }
+    else if ( !coilBufferStackInitialize )
+    {
+      for ( long i_coil = 0; i_coil < DIM_COILS; i_coil++ )
+        memset( &pGEN->pHvm->phvm->meaSptCal.measure.coilsBuffer[i_coil], 0, sizeof(struct MOD_HV_coil_data_simulation) );
+    }
+
+    if ( coilBufferStackInitialize )
+    {
+      // First 2 coils have same ID.
+      if ( strncmp( pGEN->pHvm->phvm->meaSptCal.measure.coilsBuffer[0].entryIdentity, pGEN->pHvm->phvm->meaSptCal.measure.coilsBuffer[1].entryIdentity, 
+                    max( strlen( pGEN->pHvm->phvm->meaSptCal.measure.coilsBuffer[0].entryIdentity ), strlen( pGEN->pHvm->phvm->meaSptCal.measure.coilsBuffer[1].entryIdentity ) ) ) == 0 )
+      {
+        memset( &pGEN->pHvm->phvm->meaSptCal.measure.coilsBuffer[1], 0, sizeof(struct MOD_HV_coil_data_simulation) );
+
+        if      ( strncmp( pGEN->pHvm->phvm->meaSptCal.measure.coilsBuffer[2].entryIdentity, pGEN->pHvm->phvm->meaSptCal.measure.coilsBuffer[0].entryIdentity, strlen( pGEN->pHvm->phvm->meaSptCal.measure.coilsBuffer[0].entryIdentity ) ) != 0 &&
+                  strncmp( pGEN->pHvm->phvm->meaSptCal.measure.coilsBuffer[2].entryIdentity, entryIdentityLast                                       , strlen( entryIdentityLast                                        ) ) != 0)
+        {
+          pGEN->pHvm->phvm->meaSptCal.measure.coilsBuffer[1] = pGEN->pHvm->phvm->meaSptCal.measure.coilsBuffer[2];
+          memset( &pGEN->pHvm->phvm->meaSptCal.measure.coilsBuffer[2], 0, sizeof(struct MOD_HV_coil_data_simulation) );
+          memset( &pGEN->pHvm->phvm->meaSptCal.measure.coilsBuffer[3], 0, sizeof(struct MOD_HV_coil_data_simulation) );
+        }
+        else if ( strncmp( pGEN->pHvm->phvm->meaSptCal.measure.coilsBuffer[3].entryIdentity, pGEN->pHvm->phvm->meaSptCal.measure.coilsBuffer[0].entryIdentity, strlen( pGEN->pHvm->phvm->meaSptCal.measure.coilsBuffer[0].entryIdentity ) ) != 0 &&
+                  strncmp( pGEN->pHvm->phvm->meaSptCal.measure.coilsBuffer[3].entryIdentity, entryIdentityLast                                       , strlen( entryIdentityLast                                        ) ) != 0)
+        {
+          pGEN->pHvm->phvm->meaSptCal.measure.coilsBuffer[1] = pGEN->pHvm->phvm->meaSptCal.measure.coilsBuffer[3];
+          memset( &pGEN->pHvm->phvm->meaSptCal.measure.coilsBuffer[2], 0, sizeof(struct MOD_HV_coil_data_simulation) );
+          memset( &pGEN->pHvm->phvm->meaSptCal.measure.coilsBuffer[3], 0, sizeof(struct MOD_HV_coil_data_simulation) );
+        }
+        else
+        {
+          memset( &pGEN->pHvm->phvm->meaSptCal.measure.coilsBuffer[2], 0, sizeof(struct MOD_HV_coil_data_simulation) );
+          memset( &pGEN->pHvm->phvm->meaSptCal.measure.coilsBuffer[3], 0, sizeof(struct MOD_HV_coil_data_simulation) );
+        }
+      }
+
+      // Different ID for the first 2 coils.
+      else
+      {
+        strncpy_s( entryIdentityLast, DIM_NAMES, pGEN->pHvm->phvm->meaSptCal.measure.coilsBuffer[0].entryIdentity, strlen( pGEN->pHvm->phvm->meaSptCal.measure.coilsBuffer[0].entryIdentity ) );
+        
+        //if      ( strncmp( pGEN->pHvm->phvm->meaSptCal.measure.coilsBuffer[2].entryIdentity, pGEN->pHvm->phvm->meaSptCal.measure.coilsBuffer[0].entryIdentity, strlen( pGEN->pHvm->phvm->meaSptCal.measure.coilsBuffer[0].entryIdentity ) ) != 0 &&
+        //          strncmp( pGEN->pHvm->phvm->meaSptCal.measure.coilsBuffer[2].entryIdentity, pGEN->pHvm->phvm->meaSptCal.measure.coils      [0].entryIdentity, strlen( pGEN->pHvm->phvm->meaSptCal.measure.coilsBuffer[0].entryIdentity ) ) != 0 &&
+        //          strncmp( pGEN->pHvm->phvm->meaSptCal.measure.coilsBuffer[2].entryIdentity, pGEN->pHvm->phvm->meaSptCal.measure.coilsBuffer[1].entryIdentity, strlen( pGEN->pHvm->phvm->meaSptCal.measure.coilsBuffer[1].entryIdentity ) ) != 0 
+        //          )
+        //{
+        //  //pGEN->pHvm->phvm->meaSptCal.measure.coilsBuffer[2] = pGEN->pHvm->phvm->meaSptCal.measure.coilsBuffer[2];
+        //  //memset( &pGEN->pHvm->phvm->meaSptCal.measure.coilsBuffer[2], 0, sizeof(struct MOD_HV_coil_data_simulation) );
+        //  memset( &pGEN->pHvm->phvm->meaSptCal.measure.coilsBuffer[3], 0, sizeof(struct MOD_HV_coil_data_simulation) );
+        //}
+        //else if ( strncmp( pGEN->pHvm->phvm->meaSptCal.measure.coilsBuffer[3].entryIdentity, pGEN->pHvm->phvm->meaSptCal.measure.coilsBuffer[0].entryIdentity, strlen( pGEN->pHvm->phvm->meaSptCal.measure.coilsBuffer[0].entryIdentity ) ) != 0 &&
+        //          strncmp( pGEN->pHvm->phvm->meaSptCal.measure.coilsBuffer[3].entryIdentity, pGEN->pHvm->phvm->meaSptCal.measure.coils      [0].entryIdentity, strlen( pGEN->pHvm->phvm->meaSptCal.measure.coilsBuffer[0].entryIdentity ) ) != 0 &&
+        //          strncmp( pGEN->pHvm->phvm->meaSptCal.measure.coilsBuffer[3].entryIdentity, pGEN->pHvm->phvm->meaSptCal.measure.coilsBuffer[1].entryIdentity, strlen( pGEN->pHvm->phvm->meaSptCal.measure.coilsBuffer[1].entryIdentity ) ) != 0 
+        //          )
+        //{
+        //  pGEN->pHvm->phvm->meaSptCal.measure.coilsBuffer[2] = pGEN->pHvm->phvm->meaSptCal.measure.coilsBuffer[3];
+        //  memset( &pGEN->pHvm->phvm->meaSptCal.measure.coilsBuffer[2], 0, sizeof(struct MOD_HV_coil_data_simulation) );
+        //  memset( &pGEN->pHvm->phvm->meaSptCal.measure.coilsBuffer[3], 0, sizeof(struct MOD_HV_coil_data_simulation) );
+        //}
+        //else
+        //{
+          memset( &pGEN->pHvm->phvm->meaSptCal.measure.coilsBuffer[2], 0, sizeof(struct MOD_HV_coil_data_simulation) );
+          memset( &pGEN->pHvm->phvm->meaSptCal.measure.coilsBuffer[3], 0, sizeof(struct MOD_HV_coil_data_simulation) );
+        //}
+
+      }
+
+      // If we have only one coil in Buffer. We need to add a tempory one. It is based on the first coil.
+      if ( strcmp( pGEN->pHvm->phvm->meaSptCal.measure.coilsBuffer[1].entryIdentity, "" ) == 0 )
+      {
+        pGEN->pHvm->phvm->meaSptCal.measure.coilsBuffer[1] = pGEN->pHvm->phvm->meaSptCal.measure.coilsBuffer[0];
+        strcat( pGEN->pHvm->phvm->meaSptCal.measure.coilsBuffer[1].entryIdentity, "G1" );
+        lineWeldPositionAvailableForUse = false;
+      }
+      else
+      {
+        lineWeldPositionAvailableForUse = true;
+        if ( strncmp( pGEN->pHvm->phvm->meaSptCal.measure.coils[0].entryIdentity, refCoilID, max( strlen( pGEN->pHvm->phvm->meaSptCal.measure.coilsBuffer[0].entryIdentity), strlen( refCoilID ) ) ) == 0 )
+        {
+          strcpy_s ( refCoilIDLine, "\0" );
+          strncpy_s( refCoilIDLine, DIM_NAMES, pGEN->pHvm->phvm->meaSptCal.measure.coils[1].entryIdentity, strlen( pGEN->pHvm->phvm->meaSptCal.measure.coils[1].entryIdentity ) );
+        }
+        else
+        {
+          strcpy_s ( refCoilIDLine, "\0" );
+          strncpy_s( refCoilIDLine, DIM_NAMES, pGEN->pHvm->phvm->meaSptCal.measure.coils[0].entryIdentity, strlen( pGEN->pHvm->phvm->meaSptCal.measure.coils[0].entryIdentity ) );
+        }
+        sprintf( traceTempo, "refCoilID = %s. refCoilIDLine = %s, measure.coils[1].entryIdentity = %s, measure.coils[0].entryIdentity = %s", 
+                              refCoilID, 
+                              refCoilIDLine, 
+                              pGEN->pHvm->phvm->meaSptCal.measure.coils[0].entryIdentity, 
+                              pGEN->pHvm->phvm->meaSptCal.measure.coils[1].entryIdentity );
+        //utl.writeTrace( traceFilePointer		  // Entry: File pointer.
+        //              , traceTempo            // Entry: Trace string.
+        //              );
+      }
+
+      // Add another tempory coil.
+      if ( strcmp( pGEN->pHvm->phvm->meaSptCal.measure.coilsBuffer[2].entryIdentity, "" ) == 0 )
+      {
+        pGEN->pHvm->phvm->meaSptCal.measure.coilsBuffer[2] = pGEN->pHvm->phvm->meaSptCal.measure.coilsBuffer[1];
+        strcat( pGEN->pHvm->phvm->meaSptCal.measure.coilsBuffer[2].entryIdentity, "G2" );
+      }
+
+      
+      sprintf( traceTempo, "coilMessageRecieved: coil BUFFER ID 0 = %s. ID 1 = %s. ID 2 = %s. ID 3 = %s.", 
+               pGEN->pHvm->phvm->meaSptCal.measure.coilsBuffer[0].entryIdentity, 
+               pGEN->pHvm->phvm->meaSptCal.measure.coilsBuffer[1].entryIdentity, 
+               pGEN->pHvm->phvm->meaSptCal.measure.coilsBuffer[2].entryIdentity, 
+               pGEN->pHvm->phvm->meaSptCal.measure.coilsBuffer[3].entryIdentity );
+      //utl.writeTrace( traceFilePointer		  // Entry: File pointer.
+      //              , traceTempo            // Entry: Trace string.
+      //              );
+    }
+
+    //// Coil index 2 and 3 are coils on saddle in front of the entry section.
+    //// If coil 2 is empty we store coil 3 instead.
+    //if ( strncmp( pGEN->pHvm->phvm->meaSptCal.measure.coilsBuffer[2].entryIdentity, "", strlen( pGEN->pHvm->phvm->meaSptCal.measure.coilsBuffer[2].entryIdentity ) ) == 0 )
+    //{
+    //  pGEN->pHvm->phvm->meaSptCal.measure.coilsBuffer[2] = pGEN->pHvm->phvm->meaSptCal.measure.coils[3];
+    //  memset( &pGEN->pHvm->phvm->meaSptCal.measure.coilsBuffer[3], 0, sizeof(struct MOD_HV_coil_data) );
+    //}
+    //
+    //if ( strncmp( pGEN->pHvm->phvm->meaSptCal.measure.coilsBuffer[1].entryIdentity, pGEN->pHvm->phvm->meaSptCal.measure.coilsBuffer[2].entryIdentity, strlen( pGEN->pHvm->phvm->meaSptCal.measure.coilsBuffer[2].entryIdentity ) ) == 0 )
+    //{
+    //  memset( &pGEN->pHvm->phvm->meaSptCal.measure.coilsBuffer[2], 0, sizeof(struct MOD_HV_coil_data) );
+    //  if ( strncmp( pGEN->pHvm->phvm->meaSptCal.measure.coilsBuffer[3].entryIdentity, "", strlen( pGEN->pHvm->phvm->meaSptCal.measure.coilsBuffer[3].entryIdentity ) ) != 0 )
+    //  {
+    //    pGEN->pHvm->phvm->meaSptCal.measure.coilsBuffer[2] = pGEN->pHvm->phvm->meaSptCal.measure.coils[3];
+    //    memset( &pGEN->pHvm->phvm->meaSptCal.measure.coilsBuffer[3], 0, sizeof(struct MOD_HV_coil_data) );
+    //  }
+    //}
   }
   
-  
+  // Line measurement.
+  else if ( pMessageRecieve->measurementMessage == 4002 )
+  {
+   
+  }
+  // Event weld.
+  else if ( pMessageRecieve->measurementMessage == 4011 )
+  {
+    
+  }
+  // Event weld entry.
+  else if ( pMessageRecieve->measurementMessage == 4012 )
+  {
+    
+  }
+  // Event weld exit.
+  else if ( pMessageRecieve->measurementMessage == 4013 )
+  {
+    
+  }
+  // Process rules message.
+  else if ( pMessageRecieve->measurementMessage == 5002 )
+  {
+    // Look if a code does not exists in the table. If so push back in front.
+    for ( long iCoil = 0; iCoil < DIM_COILS; iCoil++ )
+    {
+      bool isInternalCodeExists = false;
+      for ( long i = 0; i < 10; i++ )
+      {
+        if ( heatCycleCodeTable[i].internalCode == pMessageRecieve->coils[iCoil].internalCode )
+        {
+          // Update code.
+          heatCycleCodeTable[i].heatCycleCode = pMessageRecieve->coils[iCoil].heatCycle;
+          isInternalCodeExists = true;
+          break;
+        }
+      }
+
+      // If not found. Push back.
+      if ( !isInternalCodeExists )
+      {
+        for ( long i = 10-1; i > 0; i-- )
+        {
+          heatCycleCodeTable[i] = heatCycleCodeTable[i-1];
+        }
+
+        // Store information.
+        heatCycleCodeTable[0].internalCode  = pMessageRecieve->coils[iCoil].internalCode;
+        heatCycleCodeTable[0].heatCycleCode = pMessageRecieve->coils[iCoil].heatCycle;
+      }
+    }
+
+    bool totootoo = true;
+
+  }
+
   return;
 }
 
@@ -1076,212 +2347,256 @@ bool SPE_specific::coilQueueAndTrackingManagement
   }
   else
   {
-    // Check incoherent tracking.
-    bool incoherentTracking = false;
-    if ( ( pGEN->pHvm->phvm->meaSptCal.measure.line.weldPositions[0] < -10. ||
-           pGEN->pHvm->phvm->meaSptCal.measure.line.weldPositions[0] > 500. ) && initialize )
-    {
-      incoherentTracking = strncmp( pGEN->pHvm->phvm->meaSptCal.measure.coilsBuffer[0].entryIdentity, 
-                                    pGEN->pHvm->phvm->meaSptCal.measure.coils      [0].entryIdentity, 
-                                    strlen( pGEN->pHvm->phvm->meaSptCal.measure.coils[0].entryIdentity ) ) == 0;
-      
-    }
-    sprintf_s( traceTempo, "incoherentTracking = %d , pGEN->pHvm->phvm->meaSptCal.measure.line.weldPositions[0] = %f m, coilsBuffer id = %s, coil id = %s "
-                         , incoherentTracking
-                         , pGEN->pHvm->phvm->meaSptCal.measure.line.weldPositions[0]
-                         , pGEN->pHvm->phvm->meaSptCal.measure.coilsBuffer[0].entryIdentity
-                         , pGEN->pHvm->phvm->meaSptCal.measure.coils      [0].entryIdentity
-                         );
-    pMOD->pUtl->writeTrace( traceFilePointer		  // Entry: File pointer.
-                          , traceTempo            // Entry: Trace string.
-                          );
-    if ( !initialize )
-    {
-      if ( pGEN->pHvm->phvm->meaSptCal.measure.line.weldPositions[0] < 400. )
-      {
-        for ( long i_coil = 0; i_coil < DIM_COILS; i_coil++ )
-        {
-          memset( &pGEN->pHvm->phvm->meaSptCal.measure.coils[i_coil], 0, sizeof(struct MOD_HV_coil_data_simulation) );
-          pGEN->pHvm->phvm->meaSptCal.measure.coils[i_coil] = pGEN->pHvm->phvm->meaSptCal.measure.coilsBuffer[i_coil];
-        }
-      }
-      else
-      {
-        for ( long i_coil = 1; i_coil < DIM_COILS; i_coil++ )
-        {
-          memset( &pGEN->pHvm->phvm->meaSptCal.measure.coils[i_coil], 0, sizeof(struct MOD_HV_coil_data_simulation) );
-          pGEN->pHvm->phvm->meaSptCal.measure.coils[i_coil] = pGEN->pHvm->phvm->meaSptCal.measure.coilsBuffer[i_coil-1];
-        }
+    // Explication sur les positions de soudure:
+    // La position index 2 est celle du PLC ligne. Elle s'active en positif décroissante quand une soudure est faite. 
+    // Elle s'arrête vers -15 m entre le RR et FF. 
+    // La position de soudure index 0 est celle du four. Il s'agit d'une intégration de la vitesse à partir du point 0 four (entrée four).
+    // Avant on suppose une recopie de la position de soudure du PLC ligne.
+    // La position de soudure index 1 est l'ancienne index 0.
+    // La position index 0 prend la place de l'index 1 quand l'index 0 arrive à 0. 
 
-        // Create a previous with a special identity.
-        pGEN->pHvm->phvm->meaSptCal.measure.coils[0] = pGEN->pHvm->phvm->meaSptCal.measure.coilsBuffer[0];
-        strcpy_s( pGEN->pHvm->phvm->meaSptCal.measure.coils[0].entryIdentity, "Initialisation" );
-      }
-      initialize = true;
-    }
-    else
-    {
-      if ( pGEN->pHvm->phvm->meaSptCal.measure.line.weldPositions[0] < 400. )
-      {
-        for ( long i_coil = 0; i_coil < DIM_COILS; i_coil++ )
-        {
-          memset( &pGEN->pHvm->phvm->meaSptCal.measure.coils[i_coil], 0, sizeof(struct MOD_HV_coil_data_simulation) );
-          pGEN->pHvm->phvm->meaSptCal.measure.coils[i_coil] = pGEN->pHvm->phvm->meaSptCal.measure.coilsBuffer[i_coil];
-        }
-      }
-      else
-      {
-        if ( !incoherentTracking || firstTime )
-        {
-          firstTime = false;
-          for ( long i_coil = 1; i_coil < DIM_COILS; i_coil++ )
-          {
-            memset( &pGEN->pHvm->phvm->meaSptCal.measure.coils[i_coil], 0, sizeof(struct MOD_HV_coil_data_simulation) );
-            pGEN->pHvm->phvm->meaSptCal.measure.coils[i_coil] = pGEN->pHvm->phvm->meaSptCal.measure.coilsBuffer[i_coil-1];
-          }
-        }
-      }
-    }
+    // On bascule la bobine suivante dans l'actuel quand la queue de l'actuelle atteint atteint la pooint 0: position de soudure à zero.
 
-    static double weldPositionLast    = -1.;
-    static double weldPositionLast2   = -1.;
-    static double weldPositionElapse  = -1.;
-    static double weldPositionIni     = -1.;
-    static bool   overWrite           = false;
+    //pGEN->pHvm->phvm->meaSptCal.measure.line.weldPositions[0] -= 35.;
+    //pGEN->pHvm->phvm->meaSptCal.measure.line.weldPositions[3] += 15.;
 
-    // old way.
-    //double lengthVariation            = weldPositionLast - pGEN->pHvm->phvm->meaSptCal.measure.line.weldPositions[1]; // positive.
+    time_t currentTime = 0;
+    time(&currentTime);
 
-    //if ( lengthVariation < 0 )
-    //  lengthVariation                 = weldPositionLast - pGEN->pHvm->phvm->meaSptCal.measure.line.weldPositions[0];
-
-    //if ( weldPositionLast2 - pGEN->pHvm->phvm->meaSptCal.measure.line.weldPositions[0] > 0 )
-    //  lengthVariation = min( weldPositionLast2 - pGEN->pHvm->phvm->meaSptCal.measure.line.weldPositions[0], lengthVariation );
-
-    // new way. only index 0.
-    double lengthVariation            = weldPositionLast2 - pGEN->pHvm->phvm->meaSptCal.measure.line.weldPositions[0];
-    if ( lengthVariation < pMOD->pMath->epsilon )  lengthVariation = 1.;
-
-    weldPositionLast                  = pGEN->pHvm->phvm->meaSptCal.measure.line.weldPositions[1];
-    weldPositionLast2                 = pGEN->pHvm->phvm->meaSptCal.measure.line.weldPositions[0];
+    long test = difftime( currentTime, lastUnPack );
     
-    sprintf_s( traceTempo, "lengthVariation = %f m , weldPositions 1 = %f m, weldPositions 2 = %f m "
-                         , lengthVariation
-                         , pGEN->pHvm->phvm->meaSptCal.measure.line.weldPositions[1]
-                         , pGEN->pHvm->phvm->meaSptCal.measure.line.weldPositions[2]
-                         );
-    pMOD->pUtl->writeTrace( traceFilePointer		  // Entry: File pointer.
-                          , traceTempo            // Entry: Trace string.
-                          );
-    if ( overWrite || pGEN->pHvm->phvm->meaSptCal.measure.line.weldPositions[0] < 130. )
+    // Check for unpack.
+    if ( lastWeldPosition < pGEN->pHvm->phvm->meaSptCal.measure.line.weldPositions[0] - 100.  &&
+         difftime( currentTime, lastUnPack ) > 3 * 60                                 &&      // interdiction de dépiller si moins de 3 minutes. Problème d'entrelacement de message.
+         strncmp( pGEN->pHvm->phvm->meaSptCal.measure.coils[2].entryIdentity, pGEN->pHvm->phvm->meaSptCal.measure.coils[3].entryIdentity, 
+                  strlen( pGEN->pHvm->phvm->meaSptCal.measure.coilsBuffer[2].entryIdentity) ) != 0 // Attention comparaison unquiement à la la longueur de l'index 2.
+         ) 
     {
-      double weldPosition = 0.;
-      if ( !overWrite )
-      {
-        weldPositionIni     = pGEN->pHvm->phvm->meaSptCal.measure.line.weldPositions[0];
-        weldPositionElapse  = 0.;
-        weldPosition        = pGEN->pHvm->phvm->meaSptCal.measure.line.weldPositions[0];
-      }
-      else
-      {
-        weldPositionElapse  += lengthVariation;
-        weldPosition        = weldPositionIni - weldPositionElapse; // A vérifier pas sure.
-      }
-      weldsPosition[0]    = weldPosition;
-      strncpy_s( referenceCoilIdentity, DIM_NAMES, pGEN->pHvm->phvm->meaSptCal.measure.coils[0].entryIdentity, strlen( pGEN->pHvm->phvm->meaSptCal.measure.coils[0].entryIdentity ) );
-        
-      sprintf_s( traceTempo, "overWrite = %d, weldPosition = %f m, weldPositionElapse = %f m, referenceCoilIdentity = %s "
-                           , overWrite
-                           , weldPosition
-                           , weldPositionElapse
-                           , referenceCoilIdentity
-                           );
-      pMOD->pUtl->writeTrace( traceFilePointer		  // Entry: File pointer.
-                            , traceTempo            // Entry: Trace string.
-                            );
-      
-      overWrite = true;
-      if ( weldPositionElapse > 200. || weldPositionElapse < -400. )
-      {
-        weldPositionElapse  = 0.;
-        overWrite           = false;
-        weldsPosition[0]    = pGEN->pHvm->phvm->meaSptCal.measure.line.weldPositions[0];
-        strncpy_s( referenceCoilIdentity, DIM_NAMES, pGEN->pHvm->phvm->meaSptCal.measure.line.entryIdentities[0], strlen( pGEN->pHvm->phvm->meaSptCal.measure.line.entryIdentities[0] ) );
+      if ( pGEN->pHvm->phvm->coilQueue.pCoilOrdered[0] != nullptr )
+        pGEN->pHvm->phvm->coilQueue.lastCoils[0] = *pGEN->pHvm->phvm->coilQueue.pCoilOrdered[0];
 
-        sprintf_s( traceTempo, "Return to regular, weldPosition = %f m, referenceCoilIdentity = %s "
-                             , weldsPosition[0]
-                             , referenceCoilIdentity
-                             );
-        pMOD->pUtl->writeTrace( traceFilePointer		  // Entry: File pointer.
-                              , traceTempo            // Entry: Trace string.
-                              );
+      memset( &pGEN->pHvm->phvm->meaSptCal.measure.coils[0], 0, sizeof(struct MOD_HV_coil_data_simulation) );
+      for ( long iCoil = 0; iCoil < DIM_COILS - 1; iCoil++ )
+      {
+        memcpy( &pGEN->pHvm->phvm->meaSptCal.measure.coils[iCoil], &pGEN->pHvm->phvm->meaSptCal.measure.coils[iCoil + 1], sizeof(struct MOD_HV_coil_data_simulation) );
       }
+      memset( &pGEN->pHvm->phvm->meaSptCal.measure.coils[DIM_COILS - 1], 0, sizeof(struct MOD_HV_coil_data_simulation) );
+
+      if ( coilBufferStackInitialize && coilStackInitialize )
+      {
+        strncpy_s( refCoilID, DIM_NAMES, pGEN->pHvm->phvm->meaSptCal.measure.coils[0].entryIdentity, strlen( pGEN->pHvm->phvm->meaSptCal.measure.coils[0].entryIdentity ) );
+      }
+      sprintf( traceTempo, "coilQueueAndTrack  : weld UNPACK ID 0 = %s. ID 1 = %s. ID 2 = %s. ID 3 = %s.", 
+               pGEN->pHvm->phvm->meaSptCal.measure.coils[0].entryIdentity, 
+               pGEN->pHvm->phvm->meaSptCal.measure.coils[1].entryIdentity, 
+               pGEN->pHvm->phvm->meaSptCal.measure.coils[2].entryIdentity, 
+               pGEN->pHvm->phvm->meaSptCal.measure.coils[3].entryIdentity );
+      //utl.writeTrace( traceFilePointer		  // Entry: File pointer.
+      //              , traceTempo            // Entry: Trace string.
+      //              );
+
+      lastUnPack = currentTime;
+    }
+
+    // Store last weld position.
+    lastWeldPosition = pGEN->pHvm->phvm->meaSptCal.measure.line.weldPositions[0];
+
+    // Initialization.
+    if ( coilBufferStackInitialize && !coilStackInitialize )
+    {
+      for ( long iCoil = 0; iCoil < DIM_COILS - 2; iCoil++ )
+        pGEN->pHvm->phvm->meaSptCal.measure.coils[iCoil + 1] = pGEN->pHvm->phvm->meaSptCal.measure.coilsBuffer[iCoil];
+      coilStackInitialize = true;
+      sprintf( traceTempo, "coilQueueAndTrackingManagement: coils stack initialize. " );
+      //utl.writeTrace( traceFilePointer		  // Entry: File pointer.
+      //              , traceTempo            // Entry: Trace string.
+      //              );
+    }
+    // Find coil.
+    long nuCoilInMeasureStruct = -1;
+    bool found = false;
+    for ( long iCoil = 0; iCoil < DIM_COILS; iCoil++ )
+    {
+      if ( strncmp( pGEN->pHvm->phvm->meaSptCal.measure.coils[iCoil].entryIdentity, pGEN->pHvm->phvm->meaSptCal.measure.coilsBuffer[0].entryIdentity, 
+                  max( strlen( pGEN->pHvm->phvm->meaSptCal.measure.coilsBuffer[iCoil].entryIdentity), strlen( pGEN->pHvm->phvm->meaSptCal.measure.coils[0].entryIdentity ) ) ) == 0 &&
+           strcmp( pGEN->pHvm->phvm->meaSptCal.measure.coils[iCoil].entryIdentity, "" ) != 0 )
+      {
+        found = true;
+        nuCoilInMeasureStruct = iCoil;
+        break;
+      }
+    }
+
+    if ( found )
+    {
+      sprintf( traceTempo, "coilQueueAndTrackingManagement: coil ID found idx = %d. ", nuCoilInMeasureStruct );
+      //utl.writeTrace( traceFilePointer		  // Entry: File pointer.
+      //              , traceTempo            // Entry: Trace string.
+      //              );
+      for ( long iCoil = 0; iCoil < DIM_COILS - nuCoilInMeasureStruct; iCoil++ )
+      {
+        // The first coil recieved has changed. We store last first coil in our first index.
+        memset( &pGEN->pHvm->phvm->meaSptCal.measure.coils[iCoil + nuCoilInMeasureStruct], 0, sizeof(struct MOD_HV_coil_data_simulation) );
+        pGEN->pHvm->phvm->meaSptCal.measure.coils[iCoil + nuCoilInMeasureStruct] = pGEN->pHvm->phvm->meaSptCal.measure.coilsBuffer[iCoil];
+      }
+    }
+    else if ( coilBufferStackInitialize && coilStackInitialize && !found )
+    {
+      sprintf( traceTempo, "coilQueueAndTrackingManagement: coil ID not found !!!!!! " );
+      //utl.writeTrace( traceFilePointer		  // Entry: File pointer.
+      //              , traceTempo            // Entry: Trace string.
+      //              );
+      nuCoilInMeasureStruct = 1;
+      for ( long iCoil = 0; iCoil < DIM_COILS - nuCoilInMeasureStruct; iCoil++ )
+      {
+        // The first coil recieved has changed. We store last first coil in our first index.
+        memset( &pGEN->pHvm->phvm->meaSptCal.measure.coils[iCoil + nuCoilInMeasureStruct], 0, sizeof(struct MOD_HV_coil_data_simulation) );
+        pGEN->pHvm->phvm->meaSptCal.measure.coils[iCoil + nuCoilInMeasureStruct] = pGEN->pHvm->phvm->meaSptCal.measure.coilsBuffer[iCoil];
+      }
+    }
+
+    sprintf( traceTempo, "coilQueueAndTrack  : coil MEAS   ID 0 = %s. ID 1 = %s. ID 2 = %s. ID 3 = %s.", 
+              pGEN->pHvm->phvm->meaSptCal.measure.coils[0].entryIdentity, 
+              pGEN->pHvm->phvm->meaSptCal.measure.coils[1].entryIdentity, 
+              pGEN->pHvm->phvm->meaSptCal.measure.coils[2].entryIdentity, 
+              pGEN->pHvm->phvm->meaSptCal.measure.coils[3].entryIdentity );
+    //utl.writeTrace( traceFilePointer		  // Entry: File pointer.
+    //              , traceTempo            // Entry: Trace string.
+    //              );
+
+    status = coilBufferStackInitialize && coilStackInitialize;
+
+    //// Check if modification of the first coil identity recieved in coils buffer.
+    //if ( strncmp( pGEN->pHvm->phvm->meaSptCal.measure.coils[1].entryIdentity, pGEN->pHvm->phvm->meaSptCal.measure.coilsBuffer[0].entryIdentity, 
+    //              max( strlen( pGEN->pHvm->phvm->meaSptCal.measure.coilsBuffer[0].entryIdentity), strlen( pGEN->pHvm->phvm->meaSptCal.measure.coils[1].entryIdentity ) ) ) != 0 )
+    //{
+    //  weldingTime = pGEN->pHvm->phvm->meaSptCal.measure.coils[0].specific.weldingTime;
+    //  entryTime   = pGEN->pHvm->phvm->meaSptCal.measure.coils[0].specific.entryTime  ;
+    //  exitTime    = pGEN->pHvm->phvm->meaSptCal.measure.coils[0].specific.exitTime   ;
+    //  // The first coil recieved has changed. We store last first coil in our first index.
+    //  memset( &pGEN->pHvm->phvm->meaSptCal.measure.coils[0], 0, sizeof(struct MOD_HV_coil_data) );
+    //  pGEN->pHvm->phvm->meaSptCal.measure.coils[0] = pGEN->pHvm->phvm->meaSptCal.measure.coilsBuffer[1];
+    //  pGEN->pHvm->phvm->meaSptCal.measure.coils[0].specific.weldingTime = weldingTime;
+    //  pGEN->pHvm->phvm->meaSptCal.measure.coils[0].specific.entryTime   = entryTime  ;
+    //  pGEN->pHvm->phvm->meaSptCal.measure.coils[0].specific.exitTime    = exitTime   ;
+    //}
+    //
+    //// Regular storage.
+    //for ( long i_coil = 1; i_coil < 4; i_coil++ )
+    //{
+    //  weldingTime = pGEN->pHvm->phvm->meaSptCal.measure.coils[i_coil].specific.weldingTime;
+    //  entryTime   = pGEN->pHvm->phvm->meaSptCal.measure.coils[i_coil].specific.entryTime  ;
+    //  exitTime    = pGEN->pHvm->phvm->meaSptCal.measure.coils[i_coil].specific.exitTime   ;
+    //  memset( &pGEN->pHvm->phvm->meaSptCal.measure.coils[i_coil], 0, sizeof(struct MOD_HV_coil_data) );
+    //  pGEN->pHvm->phvm->meaSptCal.measure.coils[i_coil] = pGEN->pHvm->phvm->meaSptCal.measure.coilsBuffer[i_coil - 1];
+    //  pGEN->pHvm->phvm->meaSptCal.measure.coils[i_coil].specific.weldingTime = weldingTime;
+    //  pGEN->pHvm->phvm->meaSptCal.measure.coils[i_coil].specific.entryTime   = entryTime  ;
+    //  pGEN->pHvm->phvm->meaSptCal.measure.coils[i_coil].specific.exitTime    = exitTime   ;
+    //}
+
+    // Store weld position.
+    if ( !lineWeldPositionAvailableForUse || pGEN->pHvm->phvm->meaSptCal.measure.line.weldPositions[0] > - 300. ) // 500.
+    {
+      weldsPosition[0] = pGEN->pHvm->phvm->meaSptCal.measure.line.weldPositions[0] ;   // WELD- 15. * 2. - 10.
+      
+      // Store reference coil identities.
+      strncpy_s( referenceCoilIdentity, DIM_NAMES, refCoilID, strlen( refCoilID ) );
+
     }
     else
     {
-      weldPositionElapse  = 0.;
-      overWrite           = false;
-      weldsPosition[0]    = pGEN->pHvm->phvm->meaSptCal.measure.line.weldPositions[0];
-      strncpy_s( referenceCoilIdentity, DIM_NAMES, pGEN->pHvm->phvm->meaSptCal.measure.line.entryIdentities[0], strlen( pGEN->pHvm->phvm->meaSptCal.measure.line.entryIdentities[0] ) );
-
-      sprintf_s( traceTempo, "regular, weldPosition = %f m, referenceCoilIdentity = %s "
-                           , weldsPosition[0]
-                           , referenceCoilIdentity
-                           );
-      pMOD->pUtl->writeTrace( traceFilePointer		  // Entry: File pointer.
-                            , traceTempo            // Entry: Trace string.
-                            );
+      weldsPosition[0] = -1. * pGEN->pHvm->phvm->meaSptCal.measure.line.weldPositions[3] ;   // WELD- 15. * 2. - 10.
+      
+      // Store reference coil identities.
+      strncpy_s( referenceCoilIdentity, DIM_NAMES, refCoilIDLine, strlen( refCoilIDLine ) );
     }
-    //weldsPosition[1] = pGEN->pHvm->phvm->meaSptCal.measure.line.weldPositions[1];
-
     nbWelds = 1;
 
-    if ( strcmp( entryIdentities[0], "" ) == 0 )
+    sprintf( traceTempo, "coilQueueAndTrackingManagement: ref coil ID 0 = %s. lineWeldPositionAvailableForUse = %d, weld 0 = %f, weld 3 = %f, weld = %f", 
+              referenceCoilIdentity, 
+              lineWeldPositionAvailableForUse,
+              pGEN->pHvm->phvm->meaSptCal.measure.line.weldPositions[0], 
+              pGEN->pHvm->phvm->meaSptCal.measure.line.weldPositions[3], 
+              weldsPosition[0] );
+    //utl.writeTrace( traceFilePointer		  // Entry: File pointer.
+    //              , traceTempo            // Entry: Trace string.
+    //              );
+
+    //weldsPosition[1] = pGEN->pHvm->phvm->meaSptCal.measure.line.weldPositions[0];
+    //weldsPosition[2] = pGEN->pHvm->phvm->meaSptCal.measure.line.weldPositions[0];
+    //weldsPosition[3] = pGEN->pHvm->phvm->meaSptCal.measure.line.weldPositions[0];
+
+
+    //if ( initializeLastFistCoilID &&
+    //     strcmp( referenceCoilIdentity, "" ) != 0)
+    //{
+    //  strncpy_s( this->lastFistCoilID, DIM_NAMES, referenceCoilIdentity, strlen( referenceCoilIdentity ) );     // A vérifier sur site.
+    //  initializeLastFistCoilID = false;
+    //}
+    //
+    //// If first coil ID changed.
+    //if ( strncmp( this->lastFistCoilID, referenceCoilIdentity, strlen( referenceCoilIdentity ) ) != 0 && initializeLastFistCoilID )
+    //{
+    //  pGEN->pHvm->phvm->coilQueue.lastCoils[0] = pGEN->pHvm->phvm->coilQueue.coils[0];
+    //  strncpy_s( this->lastFistCoilID, DIM_NAMES, referenceCoilIdentity, strlen( referenceCoilIdentity ) );     // A vérifier sur site.
+    //}
+
+    if ( coilBufferStackInitialize && coilStackInitialize )
     {
-      nuNextColorIndex = 0;
-      strncpy_s( entryIdentities[0], DIM_NAMES, pGEN->pHvm->phvm->meaSptCal.measure.coils[0].entryIdentity, 
-                  strlen( pGEN->pHvm->phvm->meaSptCal.measure.coils[0].entryIdentity ) );
-    }
-    if ( strncmp( entryIdentities[0], pGEN->pHvm->phvm->meaSptCal.measure.coils[0].entryIdentity, 
-                  strlen( pGEN->pHvm->phvm->meaSptCal.measure.coils[0].entryIdentity ) ) != 0 )
-    {
-      if ( ++nuNextColorIndex >= this->nbColors ) nuNextColorIndex = 0;
-      strncpy_s( entryIdentities[0], DIM_NAMES, pGEN->pHvm->phvm->meaSptCal.measure.coils[0].entryIdentity, 
-                  strlen( pGEN->pHvm->phvm->meaSptCal.measure.coils[0].entryIdentity ) );
-    }
+      
+      if ( strcmp( entryIdentities[0], "" ) == 0 )
+      {
+        nuNextColorIndex = 0;
+        strncpy_s( entryIdentities[0], DIM_NAMES, pGEN->pHvm->phvm->meaSptCal.measure.coils[0].entryIdentity, 
+                   strlen( pGEN->pHvm->phvm->meaSptCal.measure.coils[0].entryIdentity ) );
+      }
+      if ( strncmp( entryIdentities[0], pGEN->pHvm->phvm->meaSptCal.measure.coils[0].entryIdentity, 
+                    strlen( pGEN->pHvm->phvm->meaSptCal.measure.coils[0].entryIdentity ) ) != 0 )
+      {
+        if ( ++nuNextColorIndex >= 4 ) nuNextColorIndex = 0;
+        strncpy_s( entryIdentities[0], DIM_NAMES, pGEN->pHvm->phvm->meaSptCal.measure.coils[0].entryIdentity, 
+                   strlen( pGEN->pHvm->phvm->meaSptCal.measure.coils[0].entryIdentity ) );
+      }
 
-    // Find color code.
-    long nuColor = nuNextColorIndex;
-    for ( long i_coil = 0; i_coil < DIM_COILS; i_coil++ )
-    {
-      // Store color code. 
-      pGEN->pHvm->phvm->meaSptCal.measure.coils[i_coil].color = colorNumbers[nuColor];
-      if ( ++nuColor >= this->nbColors ) nuColor = 0;
-    }
-
-    sprintf_s( traceTempo, "Suivi soudure. Pos 0: %f m, Pos 1: %f m, Pos 2: %f m / Id 0 = %s, Id 1 = %s, Id 2 = %s, "
-                         , pGEN->pHvm->phvm->meaSptCal.measure.line.weldPositions[0]
-                         , pGEN->pHvm->phvm->meaSptCal.measure.line.weldPositions[1]
-                         , pGEN->pHvm->phvm->meaSptCal.measure.line.weldPositions[2]
-                         , pGEN->pHvm->phvm->meaSptCal.measure.line.entryIdentities[0]
-                         , pGEN->pHvm->phvm->meaSptCal.measure.line.entryIdentities[1]
-                         , pGEN->pHvm->phvm->meaSptCal.measure.line.entryIdentities[2]
-                         );
-    pMOD->pUtl->writeTrace( traceFilePointer		  // Entry: File pointer.
-                          , traceTempo            // Entry: Trace string.
-                          );
-
-    sprintf_s( traceTempo, "Suivi soudure. referenceCoilIdentity = %s, entryIdentity 0 = %s, entryIdentity 1 = %s, entryIdentity 2 = %s"
-                         , referenceCoilIdentity
-                         , pGEN->pHvm->phvm->meaSptCal.measure.coils[0].entryIdentity
-                         , pGEN->pHvm->phvm->meaSptCal.measure.coils[1].entryIdentity
-                         , pGEN->pHvm->phvm->meaSptCal.measure.coils[2].entryIdentity
-                         );
-    pMOD->pUtl->writeTrace( traceFilePointer		  // Entry: File pointer.
-                          , traceTempo            // Entry: Trace string.
-                          );
-
-    //bool ksjdbfjskc = true;
+      //// Find color code.
+      //if ( strcmp( entryIdentities[i_coil], "" ) == 0 && strcmp( pGEN->pHvm->phvm->meaSptCal.measure.coils[i_coil].entryIdentity, "" )  )
+      //{
+      //  colorCodes[i_coil] = colorNumbers[i_coil];
+      //  strncpy_s( entryIdentities[i_coil], DIM_NAMES, pGEN->pHvm->phvm->meaSptCal.measure.coils[i_coil].entryIdentity, 
+      //             strlen( pGEN->pHvm->phvm->meaSptCal.measure.coils[i_coil].entryIdentity ) );
+      //}
+      //else if ( strncmp( entryIdentities[i_coil], pGEN->pHvm->phvm->meaSptCal.measure.coils[i_coil].entryIdentity, 
+      //                   strlen( pGEN->pHvm->phvm->meaSptCal.measure.coils[i_coil].entryIdentity ) ) != 0 )
+      //{
+      //  if ( strcmp( pGEN->pHvm->phvm->meaSptCal.measure.coils[i_coil].entryIdentity, "" ) != 0 )
+      //  {
+      //    if ( strcmp( entryIdentities[i_coil], "" ) == 0 || strcmp( entryIdentities[i_coil + 1], "" ) == 0 )
+      //    {
+      //      colorCodes[i_coil] = colorNumbers[nuNextColorIndex];
+      //      if ( ++nuNextColorIndex >= 4 ) nuNextColorIndex = 0;
+      //    }
+      //    else
+      //    {
+      //      colorCodes[i_coil] = pGEN->pHvm->phvm->meaSptCal.measure.coils[i_coil + 1].color;
+      //    }
+      //
+      //    strncpy_s( entryIdentities[i_coil], DIM_NAMES, pGEN->pHvm->phvm->meaSptCal.measure.coils[i_coil].entryIdentity, 
+      //               strlen( pGEN->pHvm->phvm->meaSptCal.measure.coils[i_coil].entryIdentity ) );
+      //  }
+      //  else 
+      //  {
+      //    memset( entryIdentities[i_coil], 0, sizeof( char ) * DIM_NAMES );
+      //  }
+      //}
+      // Find color code.
+      long nuColor = nuNextColorIndex;
+      for ( long i_coil = 0; i_coil < 4; i_coil++ )
+      {
+        // Store color code. 
+        pGEN->pHvm->phvm->meaSptCal.measure.coils[i_coil].color = colorNumbers[nuColor];
+        if ( ++nuColor >= 4 ) nuColor = 0;
+      }
+    } // END: initialized.
   }
 
   return true;
@@ -1327,6 +2642,8 @@ void SPE_specific::productLineNumber
       pGEN->pHvm->phvm->coilQueue.coils[i_coil].calcul.nuLine = 0;
     }
   }
+
+  return;
 }
 
 //============================================================================
@@ -1348,10 +2665,84 @@ void SPE_specific::productCalculs
   {
     pGEN->pHvm->phvm->coilQueue.coils[i_coil].calcul.dataValid = true;
   }
-
+  
   //------------------------------------------------------------------------------------
   // Get product line number.
   productLineNumber( traceFilePointer, hasSimulationMode, pGEN );
+  
+  //------------------------------------------------------------------------------------
+  // We store the heat cycle code inside the stack of coils.
+  for ( long iCoil = 0; iCoil < DIM_COILS; iCoil++ )
+  {
+    bool found = false;
+    if ( pGEN->pHvm->phvm->coilQueue.coils[iCoil].data.internalCode > 0 )
+    {
+      for ( long i = 0; i < 10; i++ )
+      {
+        if ( heatCycleCodeTable[i].internalCode > 0 )
+        {
+          // If internal code is corresponding.
+          if ( pGEN->pHvm->phvm->coilQueue.coils[iCoil].data.internalCode == heatCycleCodeTable[i].internalCode )
+          {
+            // Store heat cycle code.
+            pGEN->pHvm->phvm->coilQueue.coils[iCoil].data.heatCycle = heatCycleCodeTable[i].heatCycleCode;
+            found = true;
+          }
+        }
+      }
+    }
+
+    // If code has not been stored.
+    if( !found )
+    {
+      // Look if what is recieved in coil queue is already exisiting in heat cycle table.
+      if ( pGEN->pHvm->phvm->coilQueue.coils[iCoil].data.heatCycle > 0 )
+      {
+        long nu_cycle = -1;
+        found = pGEN->pHvm->findProductCycle ( pGEN->pHvm->phvm->coilQueue.coils[iCoil].data.heatCycle      // Entry: Product heat cycles number.
+                                             , nu_cycle                                                     // Out  : Cycle number in table.
+                                             );
+        if ( found )
+        {
+          pGEN->pHvm->phvm->coilQueue.coils[iCoil].data.heatCycle = nu_cycle;
+        }
+      }
+    }
+    
+    // If code has not been stored.
+    if( !found )
+    {
+      // Set default code.
+      // For each heat cycles.
+      long nu_cycle = -1;
+      for ( long i_cycle = 0; i_cycle < DIM_HEAT_CYCLES; i_cycle++ )
+      {
+        if ( pGEN->pHvm->phvm->parameter.lineCycle[0].shared.heatCycles[i_cycle].bIsDefault )
+        {
+          nu_cycle = i_cycle;
+          found    = true   ;
+          break;
+        }
+      }
+
+      if ( !found ) nu_cycle = 0;
+      pGEN->pHvm->phvm->coilQueue.coils[iCoil].data.heatCycle = pGEN->pHvm->phvm->parameter.lineCycle[0].shared.heatCycles[nu_cycle].cycleNumber;
+
+    }
+  }
+
+  //------------------------------------------------------------------------------------
+  // Regular.
+  for ( long i_coil = 0; i_coil < DIM_COILS; i_coil++ )
+  {
+    // Do regular coil management.
+    this->productCalculsALL
+      ( traceFilePointer                            // Entry: Trace File pointer.
+      , hasSimulationMode                           // Entry: Has the model a simulation mode?
+      , &pGEN->pHvm->phvm->coilQueue.coils[i_coil]  // Modified: Coil structure.
+      , pGEN
+      );
+  }
 
   //------------------------------------------------------------------------------------
   // For each coils in queue.
@@ -1367,183 +2758,258 @@ void SPE_specific::productCalculs
     double ev = pMOD->pConv->length( pGEN->pHvm->phvm->coilQueue.coils[i_coil].data.thickness, TYPE_METERS, TYPE_MM  ) * 
                 pMOD->pConv->speed ( pGEN->pHvm->phvm->meaSptCal.measure.line.speed          , TYPE_MPS   , TYPE_MPM ); 
 
-    //------------------------------------------------------------------------------------
-    // Find emissivity class.
-    if ( pGEN->pHvm->phvm->coilQueue.coils[i_coil].data.steelType < 0 ||
-         pGEN->pHvm->phvm->coilQueue.coils[i_coil].data.steelType >= DIM_EMISSIVITY_CLASS / 5 )
-      pGEN->pHvm->phvm->coilQueue.coils[i_coil].calcul.emissivityClass = 99;
-    else
-    {
-      if      ( pGEN->pHvm->phvm->coilQueue.coils[i_coil].data.thickness <= 0.3 / 1000. ) pGEN->pHvm->phvm->coilQueue.coils[i_coil].calcul.emissivityClass = 0;
-      else if ( pGEN->pHvm->phvm->coilQueue.coils[i_coil].data.thickness <= 0.5 / 1000. ) pGEN->pHvm->phvm->coilQueue.coils[i_coil].calcul.emissivityClass = 1;
-      else if ( pGEN->pHvm->phvm->coilQueue.coils[i_coil].data.thickness <= 0.8 / 1000. ) pGEN->pHvm->phvm->coilQueue.coils[i_coil].calcul.emissivityClass = 2;
-      else if ( pGEN->pHvm->phvm->coilQueue.coils[i_coil].data.thickness <= 1.1 / 1000. ) pGEN->pHvm->phvm->coilQueue.coils[i_coil].calcul.emissivityClass = 3;
-      else if ( pGEN->pHvm->phvm->coilQueue.coils[i_coil].data.thickness <= 1.5 / 1000. ) pGEN->pHvm->phvm->coilQueue.coils[i_coil].calcul.emissivityClass = 4;
-      else                                                                                pGEN->pHvm->phvm->coilQueue.coils[i_coil].calcul.emissivityClass = 5;
-    }
-
     // Copy current RTF emissivity in next coil class if different.
     long nuCoilCurrentOrdered     = pGEN->pHvm->phvm->meaSptCal.lines[0].pSections[0]->pCalcul->tracking.nu_coilInOrdered;
     long nuCoilCurrentOrderedNext = nuCoilCurrentOrdered + 1;
-
-    if ( pGEN->pHvm->phvm->coilQueue.pCoilOrdered[nuCoilCurrentOrdered    ]->calcul.emissivityClass !=
-         pGEN->pHvm->phvm->coilQueue.pCoilOrdered[nuCoilCurrentOrderedNext]->calcul.emissivityClass  )
+    
+    if ( pGEN->pHvm->phvm->coilQueue.pCoilOrdered[nuCoilCurrentOrdered    ] != nullptr && 
+         pGEN->pHvm->phvm->coilQueue.pCoilOrdered[nuCoilCurrentOrderedNext] != nullptr )
     {
-      long nuClassNext    = pGEN->pHvm->phvm->coilQueue.pCoilOrdered[nuCoilCurrentOrderedNext]->calcul.emissivityClass;
-      long nuClassCurrent = pGEN->pHvm->phvm->coilQueue.pCoilOrdered[nuCoilCurrentOrdered    ]->calcul.emissivityClass;
-      for ( long iSection = 0; iSection < pMOD->pConf->pconf->nb_sections; iSection++ )
+      if ( pGEN->pHvm->phvm->coilQueue.pCoilOrdered[nuCoilCurrentOrdered    ]->calcul.emissivityClass !=
+           pGEN->pHvm->phvm->coilQueue.pCoilOrdered[nuCoilCurrentOrderedNext]->calcul.emissivityClass  )
       {
-        long sectionType = pMOD->pConf->pconf->pSections[iSection]->type;
+        long nuClassNext    = pGEN->pHvm->phvm->coilQueue.pCoilOrdered[nuCoilCurrentOrderedNext]->calcul.emissivityClass;
+        long nuClassCurrent = pGEN->pHvm->phvm->coilQueue.pCoilOrdered[nuCoilCurrentOrdered    ]->calcul.emissivityClass;
+        for ( long iSection = 0; iSection < pMOD->pConf->pconf->nb_sections; iSection++ )
+        {
+          long sectionType = pMOD->pConf->pconf->pSections[iSection]->type;
   
-        if ( sectionType == TYPE_RTF )
-          pGEN->pHvm->phvm->adapatation.emissivityClasses[nuClassNext].emissivity[iSection] = pGEN->pHvm->phvm->adapatation.emissivityClasses[nuClassCurrent].emissivity[iSection];
+          if ( sectionType == TYPE_RTF )
+            pGEN->pHvm->phvm->adapatation.emissivityClasses[nuClassNext].emissivity[iSection] = pGEN->pHvm->phvm->adapatation.emissivityClasses[nuClassCurrent].emissivity[iSection];
 
-        if ( sectionType == TYPE_NOF )
-          pGEN->pHvm->phvm->adapatation.emissivityClasses[nuClassNext].emissivity[iSection] = pGEN->pHvm->phvm->adapatation.emissivityClasses[nuClassCurrent].emissivity[iSection];
+          if ( sectionType == TYPE_NOF )
+            pGEN->pHvm->phvm->adapatation.emissivityClasses[nuClassNext].emissivity[iSection] = pGEN->pHvm->phvm->adapatation.emissivityClasses[nuClassCurrent].emissivity[iSection];
+        }
       }
     }
 
-    // Define line configuration.
-    if ( pGEN->pHvm->phvm->coilQueue.coils[i_coil].data.soakingTime > 0. || true )
-      pGEN->pHvm->phvm->coilQueue.coils[i_coil].calcul.nuLine = 0;
-    else
-      pGEN->pHvm->phvm->coilQueue.coils[i_coil].calcul.nuLine = 1;
-
-    long nuLine = pGEN->pHvm->phvm->coilQueue.coils[i_coil].calcul.nuLine;
-
-    // Store coil data in tempory structure. Done to reaorganize what is recieved in message versus requiered by the line defenition selected.
-    struct MOD_HV_coil_data CoilData = pGEN->pHvm->phvm->coilQueue.coils[i_coil].data;
-    
-    for ( long iSection = 0; iSection < pMOD->pConf->pconf->lines[nuLine].nb_sections; iSection++ )
-    {
-      long nuSectionGlobal = pMOD->pConf->pconf->lines[nuLine].pSections[iSection]->indexGlobal;
-    
-      pGEN->pHvm->phvm->coilQueue.coils[i_coil].data.sections[iSection].stripTemp =
-        CoilData.sections[nuSectionGlobal].stripTemp;
-    }
-
-    // Alliation: 
-    // Till the weld has been gone through the tower, we cannot accelerate. Thus we limit next coil with a speed.
-
-    
-    //// Create the POT target tempe and tolerances.
+    //long nuLine = pGEN->pHvm->phvm->coilQueue.coils[i_coil].calcul.nuLine;
+    //
+    //// Store coil data in tempory structure. Done to reaorganize what is recieved in message versus requiered by the line defenition selected.
+    //struct MOD_HV_coil_data CoilData = pGEN->pHvm->phvm->coilQueue.coils[i_coil].data;
+    //
     //for ( long iSection = 0; iSection < pMOD->pConf->pconf->lines[nuLine].nb_sections; iSection++ )
     //{
     //  long nuSectionGlobal = pMOD->pConf->pconf->lines[nuLine].pSections[iSection]->indexGlobal;
     //
-    //  // POT section.
-    //  if ( pMOD->pConf->pconf->lines[nuLine].pSections[iSection]->type == TYPE_POT )
-    //  {
-    //    // Copy previous section information.
-    //    pGEN->pHvm->phvm->coilQueue.coils[i_coil].data.sections[iSection].stripTemp =
-    //      pGEN->pHvm->phvm->coilQueue.coils[i_coil].data.sections[iSection - 1].stripTemp;
-    //  }
-    //
+    //  pGEN->pHvm->phvm->coilQueue.coils[i_coil].data.sections[iSection].stripTemp =
+    //    CoilData.sections[nuSectionGlobal].stripTemp;
     //}
 
     
-    // No heat cycle code.
-    continue;
   }
 
-  //// Minimum line speed.
-  //long nuCoilCurrentOrdered     = pGEN->pHvm->phvm->meaSptCal.lines[0].pSections[0]->pCalcul->tracking.nu_coilInOrdered;
-  //if ( pGEN->pHvm->phvm->coilQueue.pCoilOrdered[nuCoilCurrentOrdered] != nullptr )
-  //{
-  //  pGEN->pHvm->phvm->meaSptCal.measure.line.operatorSpeedLimit = max( pGEN->pHvm->phvm->meaSptCal.measure.line.operatorSpeedLimit, pGEN->pHvm->phvm->coilQueue.pCoilOrdered[nuCoilCurrentOrdered]->data.specific.minSpeedCoil );
-  //  pGEN->pHvm->phvm->meaSptCal.measure.line.operatorSpeedLimit = max( pGEN->pHvm->phvm->meaSptCal.measure.line.operatorSpeedLimit, pGEN->pHvm->phvm->coilQueue.pCoilOrdered[nuCoilCurrentOrdered]->data.specific.minSpeedDFF  );
-  //}
+  return;
+}
+
+//============================================================================
+// SPE_specific: productCalculsALL
+//
+//   Realized all calculs on products with a coil provided.
+//============================================================================
+void SPE_specific::productCalculsALL
+                                ( FILE **traceFilePointer		          // Entry: Trace File pointer.
+                                , bool   hasSimulationMode            // Entry: Has the model a simulation mode?
+                                , struct MOD_HV_coil *  pCoil         // Modified: Coil structure.
+                                , struct GEN_utility *  pGEN
+                                )
+{
+  char traceTempo [DIM_TRACES + 1];
 
   //------------------------------------------------------------------------------------
-  // For each coils in queue.
-  for ( long i_coil = 0; i_coil < DIM_COILS; i_coil++ )
+  // Find emissivity class.
+  if ( pCoil->data.steelType < 0 ||
+        pCoil->data.steelType >= DIM_EMISSIVITY_CLASS / 5 )
+    pCoil->calcul.emissivityClass = 99;
+  else
   {
+    if      ( pCoil->data.thickness <= 0.3 / 1000. )  pCoil->calcul.emissivityClass = 0;
+    else if ( pCoil->data.thickness <= 0.5 / 1000. )  pCoil->calcul.emissivityClass = 1;
+    else if ( pCoil->data.thickness <= 0.8 / 1000. )  pCoil->calcul.emissivityClass = 2;
+    else if ( pCoil->data.thickness <= 1.1 / 1000. )  pCoil->calcul.emissivityClass = 3;
+    else if ( pCoil->data.thickness <= 1.5 / 1000. )  pCoil->calcul.emissivityClass = 4;
+    else                                              pCoil->calcul.emissivityClass = 5;
+  }
+  
+  // Define line configuration.
+  if ( pCoil->data.soakingTime > 0. || true )
+    pCoil->calcul.nuLine = 0;
+  else
+    pCoil->calcul.nuLine = 1;
 
+  long nuLine = pCoil->calcul.nuLine;
+
+  // Store coil data in tempory structure. Done to reaorganize what is recieved in message versus requiered by the line defenition selected.
+  struct MOD_HV_coil_data CoilData = pCoil->data;
     
-    /*if ( abs( lastPIDExit - pidStripTargetTempEE.exit.pid ) >= 1. - pMOD->pMath->epsilon )
+  for ( long iSection = 0; iSection < pMOD->pConf->pconf->lines[nuLine].nb_sections; iSection++ )
+  {
+    long nuSectionGlobal = pMOD->pConf->pconf->lines[nuLine].pSections[iSection]->indexGlobal;
+    
+    pCoil->data.sections[iSection].stripTemp =
+      CoilData.sections[nuSectionGlobal].stripTemp;
+  }
+
+  //------------------------------------------------------------------------------------
+  // Find product cycle.
+  long nu_cycle = -1;
+  //if ( pCoil->data.heatCycle == 0 )
+  //  pCoil->data.heatCycle = 1;
+  bool found = pGEN->pHvm->findProductCycle ( pCoil->data.heatCycle     // Entry: Product heat cycles number.
+                                            , nu_cycle                  // Out  : Cycle number in table.
+                                            );
+  
+  //------------------------------------------------------------------------------------
+  // Store heat cycle.
+  // If heat cycle has been found.
+  if ( found )
+  {
+    if ( nuLine == 0 )
     {
-      pGEN->pHvm->phvm->coilQueue.coils[i_coil].data.sections[nuSection].stripTemp.target += pidStripTargetTempEE.exit.pid;
-      pGEN->pHvm->phvm->coilQueue.coils[i_coil].data.sections[nuSection].stripTemp.target = max( pGEN->pHvm->phvm->coilQueue.coils[i_coil].data.sections[nuSection].stripTemp.target,
-                                                                                         pGEN->pHvm->phvm->coilQueue.coils[i_coil].data.sections[nuSection].stripTemp.lower );
-      if ( i_coil == DIM_COILS - 1 ) lastPIDExit = pidStripTargetTempEE.exit.pid;
+      // For all sections defined in line configuration.
+      for ( long i_section = 0; i_section < pMOD->pConf->pconf->lines[nuLine].nb_sections; i_section++ )
+      {
+        if ( i_section <= 10 )  // to be checked that pot replace HB.
+        {
+          pCoil->data.sections[i_section].stripTemp.upper  = 
+            pGEN->pHvm->phvm->parameter.lineCycle[0].shared.heatCycles[nu_cycle].sections[i_section].stripUpper;
+          pCoil->data.sections[i_section].stripTemp.target = 
+            pGEN->pHvm->phvm->parameter.lineCycle[0].shared.heatCycles[nu_cycle].sections[i_section].stripTarget;
+          pCoil->data.sections[i_section].stripTemp.lower  = 
+            pGEN->pHvm->phvm->parameter.lineCycle[0].shared.heatCycles[nu_cycle].sections[i_section].stripLower;
+
+          // HB section.
+          if ( i_section == 4 )
+          {
+            gblSec.lockAccess();
+            gblSec.pSpe->roofTempHBSetpoint = pCoil->data.sections[i_section].stripTemp.target;
+            gblSec.unLockAccess();
+          }
+        }
+        else
+        {
+          pCoil->data.sections[i_section].stripTemp.upper  = 
+            pGEN->pHvm->phvm->parameter.lineCycle[0].shared.heatCycles[nu_cycle].sections[i_section].stripUpper;
+          pCoil->data.sections[i_section].stripTemp.target = 
+            pGEN->pHvm->phvm->parameter.lineCycle[0].shared.heatCycles[nu_cycle].sections[i_section].stripTarget;
+          pCoil->data.sections[i_section].stripTemp.lower  = 
+            pGEN->pHvm->phvm->parameter.lineCycle[0].shared.heatCycles[nu_cycle].sections[i_section].stripLower;
+
+        }
+
+        gblSec.lockAccess();
+
+        // Apply offset to FF section.
+        if      ( i_section == 0 )
+        {
+          gblSec.pSpe->FFStripTempOffset = min( max( gblSec.pSpe->FFStripTempOffset, -40. ), 40. );
+          pCoil->data.sections[i_section].stripTemp.target += gblSec.pSpe->FFStripTempOffset;
+          pCoil->data.sections[i_section].stripTemp.lower  += gblSec.pSpe->FFStripTempOffset;
+          pCoil->data.sections[i_section].stripTemp.lower   = min( pCoil->data.sections[i_section].stripTemp.lower, 
+                                                                   pCoil->data.sections[i_section].stripTemp.target - 5.  );
+          pCoil->data.sections[i_section].stripTemp.upper   = max( pCoil->data.sections[i_section].stripTemp.upper, 
+                                                                   pCoil->data.sections[i_section].stripTemp.target + 10. );
+        }
+        // Apply offset to TT section.
+        else if ( i_section == 1 )
+        {
+          gblSec.pSpe->TTStripTempOffset = min( max( gblSec.pSpe->TTStripTempOffset, -20. ), 20. );
+          pCoil->data.sections[i_section].stripTemp.target += gblSec.pSpe->TTStripTempOffset;
+          pCoil->data.sections[i_section].stripTemp.lower   = min( pCoil->data.sections[i_section].stripTemp.lower, 
+                                                                   pCoil->data.sections[i_section].stripTemp.target - 10. );
+          pCoil->data.sections[i_section].stripTemp.upper   = max( pCoil->data.sections[i_section].stripTemp.upper, 
+                                                                   pCoil->data.sections[i_section].stripTemp.target + 10. );
+        }
+        // Apply offset to HH section.
+        else if ( i_section == 2 )
+        {
+          gblSec.pSpe->HHStripTempOffset = min( max( gblSec.pSpe->HHStripTempOffset, -20. ), 20. );
+          pCoil->data.sections[i_section].stripTemp.target += gblSec.pSpe->HHStripTempOffset;
+          pCoil->data.sections[i_section].stripTemp.lower   = min( pCoil->data.sections[i_section].stripTemp.lower, 
+                                                                   pCoil->data.sections[i_section].stripTemp.target - 10. );
+          pCoil->data.sections[i_section].stripTemp.upper   = max( pCoil->data.sections[i_section].stripTemp.upper, 
+                                                                   pCoil->data.sections[i_section].stripTemp.target + 10. );
+        }
+        // Apply offset to HH section.
+        else if ( i_section == 3 )
+        {
+          gblSec.pSpe->CCStripTempOffset = min( max( gblSec.pSpe->CCStripTempOffset, -20. ), 20. );
+          pCoil->data.sections[i_section].stripTemp.target += gblSec.pSpe->CCStripTempOffset;
+          pCoil->data.sections[i_section].stripTemp.lower   = min( pCoil->data.sections[i_section].stripTemp.lower, 
+                                                                   pCoil->data.sections[i_section].stripTemp.target - 10. );
+          pCoil->data.sections[i_section].stripTemp.upper   = max( pCoil->data.sections[i_section].stripTemp.upper, 
+                                                                   pCoil->data.sections[i_section].stripTemp.target + 10. );
+        }
+        // Apply offset on HB section.
+        else if ( i_section == 4 )
+        {
+          gblSec.pSpe->HBStripTempOffset = min( max( gblSec.pSpe->HBStripTempOffset, -30. ), 20. );
+          pCoil->data.sections[i_section].stripTemp.target += gblSec.pSpe->HBStripTempOffset;
+          pCoil->data.sections[i_section].stripTemp.lower   = min( pCoil->data.sections[i_section].stripTemp.lower, 
+                                                                   pCoil->data.sections[i_section].stripTemp.target - 10. );
+          pCoil->data.sections[i_section].stripTemp.upper   = max( pCoil->data.sections[i_section].stripTemp.upper, 
+                                                                   pCoil->data.sections[i_section].stripTemp.target + 10. );
+          
+          gblSec.lockAccess();
+          gblSec.pSpe->roofTempHBSetpoint += gblSec.pSpe->HBStripTempOffset;
+          gblSec.unLockAccess();
+        }
+        // Apply offset on DD section.
+        else if ( i_section == 5 )
+        {
+          gblSec.pSpe->DDStripTempOffset = min( max( gblSec.pSpe->DDStripTempOffset, -30. ), 20. );
+          pCoil->data.sections[i_section].stripTemp.target += gblSec.pSpe->DDStripTempOffset;
+          pCoil->data.sections[i_section].stripTemp.lower   = min( pCoil->data.sections[i_section].stripTemp.lower, 
+                                                                   pCoil->data.sections[i_section].stripTemp.target - 10. );
+          pCoil->data.sections[i_section].stripTemp.upper   = max( pCoil->data.sections[i_section].stripTemp.upper, 
+                                                                   pCoil->data.sections[i_section].stripTemp.target + 10. );
+        }
+        
+        gblSec.unLockAccess();
+
+
+      }
     }
-    else
-      pGEN->pHvm->phvm->coilQueue.coils[i_coil].data.sections[nuSection].stripTemp.target += lastPIDExit;*/
-
-    /*if ( pGEN->pHvm->phvm->coilQueue.coils[i_coil].data.specific.maxSpeedPot > pMOD->pMath->epsilon )
-      pGEN->pHvm->phvm->coilQueue.coils[i_coil].data.maxSpeedQuality = min( pGEN->pHvm->phvm->coilQueue.coils[i_coil].data.maxSpeedQuality, 
-                                                                    pGEN->pHvm->phvm->coilQueue.coils[i_coil].data.specific.maxSpeedPot );*/
-    
-
-    ////------------------------------------------------------------------------------------
-    //// Find product cycle.
-    //long nu_cycle = -1;
-    //if ( pGEN->pHvm->phvm->coilQueue.coils[i_coil].data.heatCycle == 0 )
-    //  pGEN->pHvm->phvm->coilQueue.coils[i_coil].data.heatCycle = 1;
-    //bool found = pGEN->pHvm->findProductCycle( pGEN->pHvm->phvm->coilQueue.coils[i_coil].data.heatCycle     // Entry: Product heat cycles number.
-    //                                 , nu_cycle                                             // Out  : Cycle number in table.
-    //                                 );
-    //
-    ////------------------------------------------------------------------------------------
-    //// Store heat cycle.
-    //// If heat cycle has been found.
-    //long nuLine = pGEN->pHvm->phvm->coilQueue.coils[i_coil].calcul.nuLine;
-    //if ( found )
+    // Below not validated.
+    //else if ( nuLine == 1 )
     //{
-    //  if ( nuLine == 0 )
+    //  // For all sections defined in line configuration.
+    //  for ( long i_section = 0; i_section < pMOD->pConf->pconf->lines[nuLine].nb_sections; i_section++ )
     //  {
-    //    // For all sections defined in line configuration.
-    //    for ( long i_section = 0; i_section < pMOD->pConf->pconf->lines[nuLine].nb_sections; i_section++ )
+    //    if ( i_section == 0 )
     //    {
-    //      pGEN->pHvm->phvm->coilQueue.coils[i_coil].data.sections[i_section].stripTemp.upper  = 
+    //      pCoil->data.sections[i_section].stripTemp.upper  = 
     //        pGEN->pHvm->phvm->parameter.lineCycle[0].shared.heatCycles[nu_cycle].sections[i_section].stripUpper;
-    //      pGEN->pHvm->phvm->coilQueue.coils[i_coil].data.sections[i_section].stripTemp.target = 
+    //      pCoil->data.sections[i_section].stripTemp.target = 
     //        pGEN->pHvm->phvm->parameter.lineCycle[0].shared.heatCycles[nu_cycle].sections[i_section].stripTarget;
-    //      pGEN->pHvm->phvm->coilQueue.coils[i_coil].data.sections[i_section].stripTemp.lower  = 
+    //      pCoil->data.sections[i_section].stripTemp.lower  = 
     //        pGEN->pHvm->phvm->parameter.lineCycle[0].shared.heatCycles[nu_cycle].sections[i_section].stripLower;
-    //
     //    }
-    //  }
-    //  else if ( nuLine == 1 )
-    //  {
-    //    // For all sections defined in line configuration.
-    //    for ( long i_section = 0; i_section < pMOD->pConf->pconf->lines[nuLine].nb_sections; i_section++ )
+    //    else
     //    {
-    //      if ( i_section == 0 )
-    //      {
-    //        pGEN->pHvm->phvm->coilQueue.coils[i_coil].data.sections[i_section].stripTemp.upper  = 
-    //          pGEN->pHvm->phvm->parameter.lineCycle[0].shared.heatCycles[nu_cycle].sections[i_section].stripUpper;
-    //        pGEN->pHvm->phvm->coilQueue.coils[i_coil].data.sections[i_section].stripTemp.target = 
-    //          pGEN->pHvm->phvm->parameter.lineCycle[0].shared.heatCycles[nu_cycle].sections[i_section].stripTarget;
-    //        pGEN->pHvm->phvm->coilQueue.coils[i_coil].data.sections[i_section].stripTemp.lower  = 
-    //          pGEN->pHvm->phvm->parameter.lineCycle[0].shared.heatCycles[nu_cycle].sections[i_section].stripLower;
-    //      }
-    //      else
-    //      {
-    //        pGEN->pHvm->phvm->coilQueue.coils[i_coil].data.sections[i_section].stripTemp.upper  = 
-    //          pGEN->pHvm->phvm->parameter.lineCycle[0].shared.heatCycles[nu_cycle].sections[i_section+1].stripUpper;
-    //        pGEN->pHvm->phvm->coilQueue.coils[i_coil].data.sections[i_section].stripTemp.target = 
-    //          pGEN->pHvm->phvm->parameter.lineCycle[0].shared.heatCycles[nu_cycle].sections[i_section+1].stripTarget;
-    //        pGEN->pHvm->phvm->coilQueue.coils[i_coil].data.sections[i_section].stripTemp.lower  = 
-    //          pGEN->pHvm->phvm->parameter.lineCycle[0].shared.heatCycles[nu_cycle].sections[i_section+1].stripLower;
-    //      }
-    //
+    //      pCoil->data.sections[i_section].stripTemp.upper  = 
+    //        pGEN->pHvm->phvm->parameter.lineCycle[0].shared.heatCycles[nu_cycle].sections[i_section+1].stripUpper;
+    //      pCoil->data.sections[i_section].stripTemp.target = 
+    //        pGEN->pHvm->phvm->parameter.lineCycle[0].shared.heatCycles[nu_cycle].sections[i_section+1].stripTarget;
+    //      pCoil->data.sections[i_section].stripTemp.lower  = 
+    //        pGEN->pHvm->phvm->parameter.lineCycle[0].shared.heatCycles[nu_cycle].sections[i_section+1].stripLower;
     //    }
-    //
+  
     //  }
+  
     //}
-    //// Product heat cycle has not been found.
-    //else
-    //{
-    //  pGEN->pHvm->phvm->coilQueue.coils[i_coil].calcul.dataValid = false;
-    //  sprintf_s( traceTempo, DIM_PATH, "Product heat cycle not found. ID = %s, Heat cycle number = %d"
-    //                                 , pGEN->pHvm->phvm->coilQueue.coils[i_coil].data.entryIdentity
-    //                                 , pGEN->pHvm->phvm->coilQueue.coils[i_coil].data.heatCycle
-    //                                 );
-    //  pMOD->pUtl->writeTrace( traceFilePointer		  // Entry: File pointer.
-    //                , traceTempo            // Entry: Trace string.
-    //                );
-    //}
+  }
+  // Product heat cycle has not been found.
+  else
+  {
+    pCoil->calcul.dataValid = false;
+    sprintf_s( traceTempo, DIM_PATH, "Product heat cycle not found. ID = %s, Heat cycle number = %d"
+                                   , pCoil->data.entryIdentity
+                                   , pCoil->data.heatCycle
+                                   );
+    pMOD->pUtl->writeTrace( traceFilePointer		  // Entry: File pointer.
+                  , traceTempo            // Entry: Trace string.
+                  );
   }
 
   return;
@@ -1747,53 +3213,53 @@ void SPE_specific::lastActionsBeforeSetpointSending( FILE ** ppTraceFilePointer,
     // JET cooling intemediate strip temperature.
 
     
-    // Get current coil ID.
-    long nu_coilOrderedInSection  = pGEN->pHvm->phvm->meaSptCal.lines[0].pSections[1]->pCalcul->tracking.nu_coilInOrdered;
-
-
-    //------------------------------------------------------------------------------------
-    // Re work GJC.
-    long nuSection              = 2;
-    long nuSectionGlobal        = pMOD->pConf->pconf->lines[0].pSections[nuSection]->indexGlobal;
-    long nuSectionInType        = pMOD->pConf->pconf->lines[0].pSections[nuSection]->indexType;
-
-    double averageMaxHeatDemand  = 0.;
-    double averageHeatDemand     = 0.;
-    for ( long iZone = 0; iZone < pMOD->pConf->pconf->sectionsJET[nuSectionInType].nb_zones; iZone++ )
-    {
-      long    nuZoneGlobal  = pMOD->pConf->pconf->sectionsJET[nuSectionInType].pZones[iZone]->indexGlobal;
-      long    nuZoneInType  = pMOD->pConf->pconf->sectionsJET[nuSectionInType].pZones[iZone]->indexType;
-      averageMaxHeatDemand += pGEN->pHvm->phvm->parameter.zones[nuZoneGlobal].maximumHeatDemand;
-      averageHeatDemand    += pGEN->pHvm->phvm->meaSptCal.zonesJET[nuZoneInType].pSetpoint->demandPercentage;
-    }
-    averageMaxHeatDemand /= ( pMOD->pConf->pconf->sectionsJET[nuSectionInType].nb_zones );
-    averageHeatDemand    /= ( pMOD->pConf->pconf->sectionsJET[nuSectionInType].nb_zones );
-
-    for ( long iZone = 0; iZone < pMOD->pConf->pconf->sectionsJET[nuSectionInType].nb_zones; iZone++ )
-    {
-      long    nuZoneGlobal  = pMOD->pConf->pconf->sectionsJET[nuSectionInType].pZones[iZone]->indexGlobal;
-      long    nuZoneInType  = pMOD->pConf->pconf->sectionsJET[nuSectionInType].pZones[iZone]->indexType;
-      pGEN->pHvm->phvm->meaSptCal.zonesJET[nuZoneInType].pSetpoint->demandPercentage = averageHeatDemand *  pGEN->pHvm->phvm->parameter.zones[nuZoneGlobal].maximumHeatDemand / 
-                                                                                                    averageMaxHeatDemand;
-      bool test = false;
-    }
-
-    // Traction offset.
-    long nuCoilInOrder = pGEN->pHvm->phvm->meaSptCal.lines[0].pSections[0]->pCalcul->tracking.nu_coilInOrdered;
-    if ( nuCoilInOrder >= 0 && nuCoilInOrder < DIM_COILS )
-    {
-      if ( pGEN->pHvm->phvm->coilQueue.pCoilOrdered[nuCoilInOrder] != nullptr )
-      {
-        if      ( pGEN->pHvm->phvm->coilQueue.pCoilOrdered[nuCoilInOrder]->data.thickness >= 1. / 1000. && 
-                  pGEN->pHvm->phvm->coilQueue.pCoilOrdered[nuCoilInOrder]->data.width     <= 0.95 )
-	          tractionOffset = 10.;                                                                                         
-	      else if ( pGEN->pHvm->phvm->coilQueue.pCoilOrdered[nuCoilInOrder]->data.thickness <= 0.6 /1000. && 
-                  pGEN->pHvm->phvm->coilQueue.pCoilOrdered[nuCoilInOrder]->data.width     >= 1.4 )
-	          tractionOffset = -15.; 
-	      else
-	          tractionOffset = 0.f;
-      }
-    }
+    //// Get current coil ID.
+    //long nu_coilOrderedInSection  = pGEN->pHvm->phvm->meaSptCal.lines[0].pSections[1]->pCalcul->tracking.nu_coilInOrdered;
+    //
+    //
+    ////------------------------------------------------------------------------------------
+    //// Re work GJC.
+    //long nuSection              = 2;
+    //long nuSectionGlobal        = pMOD->pConf->pconf->lines[0].pSections[nuSection]->indexGlobal;
+    //long nuSectionInType        = pMOD->pConf->pconf->lines[0].pSections[nuSection]->indexType;
+    //
+    //double averageMaxHeatDemand  = 0.;
+    //double averageHeatDemand     = 0.;
+    //for ( long iZone = 0; iZone < pMOD->pConf->pconf->sectionsJET[nuSectionInType].nb_zones; iZone++ )
+    //{
+    //  long    nuZoneGlobal  = pMOD->pConf->pconf->sectionsJET[nuSectionInType].pZones[iZone]->indexGlobal;
+    //  long    nuZoneInType  = pMOD->pConf->pconf->sectionsJET[nuSectionInType].pZones[iZone]->indexType;
+    //  averageMaxHeatDemand += pGEN->pHvm->phvm->parameter.zones[nuZoneGlobal].maximumHeatDemand;
+    //  averageHeatDemand    += pGEN->pHvm->phvm->meaSptCal.zonesJET[nuZoneInType].pSetpoint->demandPercentage;
+    //}
+    //averageMaxHeatDemand /= ( pMOD->pConf->pconf->sectionsJET[nuSectionInType].nb_zones );
+    //averageHeatDemand    /= ( pMOD->pConf->pconf->sectionsJET[nuSectionInType].nb_zones );
+    //
+    //for ( long iZone = 0; iZone < pMOD->pConf->pconf->sectionsJET[nuSectionInType].nb_zones; iZone++ )
+    //{
+    //  long    nuZoneGlobal  = pMOD->pConf->pconf->sectionsJET[nuSectionInType].pZones[iZone]->indexGlobal;
+    //  long    nuZoneInType  = pMOD->pConf->pconf->sectionsJET[nuSectionInType].pZones[iZone]->indexType;
+    //  pGEN->pHvm->phvm->meaSptCal.zonesJET[nuZoneInType].pSetpoint->demandPercentage = averageHeatDemand *  pGEN->pHvm->phvm->parameter.zones[nuZoneGlobal].maximumHeatDemand / 
+    //                                                                                                averageMaxHeatDemand;
+    //  bool test = false;
+    //}
+    //
+    //// Traction offset.
+    //long nuCoilInOrder = pGEN->pHvm->phvm->meaSptCal.lines[0].pSections[0]->pCalcul->tracking.nu_coilInOrdered;
+    //if ( nuCoilInOrder >= 0 && nuCoilInOrder < DIM_COILS )
+    //{
+    //  if ( pGEN->pHvm->phvm->coilQueue.pCoilOrdered[nuCoilInOrder] != nullptr )
+    //  {
+    //    if      ( pGEN->pHvm->phvm->coilQueue.pCoilOrdered[nuCoilInOrder]->data.thickness >= 1. / 1000. && 
+    //              pGEN->pHvm->phvm->coilQueue.pCoilOrdered[nuCoilInOrder]->data.width     <= 0.95 )
+	  //        tractionOffset = 10.;                                                                                         
+	  //    else if ( pGEN->pHvm->phvm->coilQueue.pCoilOrdered[nuCoilInOrder]->data.thickness <= 0.6 /1000. && 
+    //              pGEN->pHvm->phvm->coilQueue.pCoilOrdered[nuCoilInOrder]->data.width     >= 1.4 )
+	  //        tractionOffset = -15.; 
+	  //    else
+	  //        tractionOffset = 0.f;
+    //  }
+    //}
 
     
   } // END: If not simulation.
@@ -1894,58 +3360,58 @@ void SPE_specific::measurementTreatement
   struct MOD_HV_Parameter   parameter;
   pGEN->pHvm->getParameters( &parameter, false );
 
-  //------------------------------------------------------------------------------------
-  // For all RTF zones.                                                               RTF measurement treatment.
-  static long counterTestAllBurnersOff = 0;
-  if ( ++counterTestAllBurnersOff > 1000 ) counterTestAllBurnersOff = 500;
-  
-  bool hasNoPower = true;
-  for ( long iZone = 0; iZone < pMOD->pConf->pconf->nb_zonesRTF; iZone++ )
-  {
-    struct EQP_pointers_zone_RTF *pZone = &pGEN->pHvm->phvm->meaSptCal.zonesRTF[iZone];
-    long    nuZoneGlobal  = pMOD->pConf->pconf->zonesRTF[iZone].indexGlobal;
-
-    // LHV.
-    double lhv = pMOD->pPhysic->fuelLHV( 0 );
-
-    if ( hasSimulationMode )
-    {
-      nbBurnerInDefaultRTF[iZone] = 0;
-    }
-
-    // If power exists.
-    if ( pMOD->pConf->pconf->zonesRTF[iZone].Power > 0. )
-    {
-      double maxGasFlow = pMOD->pConf->pconf->zonesRTF[iZone].Power / lhv; 
-      if ( ( maxGasFlow <= pMOD->pMath->epsilon ) || hasSimulationMode )
-        maxGasFlow = pMOD->pConf->pconf->zonesRTF[iZone].Power / lhv;
-      else
-        maxGasFlow = ( 1. - (double) nbBurnerInDefaultRTF[iZone] / (double) pMOD->pConf->pconf->zonesRTF[iZone].nb_tubes ) * pMOD->pConf->pconf->zonesRTF[iZone].Power / lhv;
-      maxGasFlow = max( maxGasFlow, 0. );
-      parameter.zones[nuZoneGlobal].maximumPower = maxGasFlow * lhv;
-
-      hasNoPower = hasNoPower && parameter.zones[nuZoneGlobal].maximumPower < pMOD->pMath->epsilon;
-
-      // Store number of tube operational.
-      pZone->pCalcul->nb_operationalBurners = pMOD->pConf->pconf->zonesRTF[iZone].nb_tubes - nbBurnerInDefaultRTF[iZone];
-    }
-
-
-    // Maximum heat demand.
-    parameter.zones[nuZoneGlobal].maximumHeatDemand = (double) ( pMOD->pConf->pconf->zonesRTF[iZone].nb_tubes - nbBurnerInDefaultRTF[iZone] ) / (double) pMOD->pConf->pconf->zonesRTF[iZone].nb_tubes * 100.;
-    
-    // parameter.zones[nuZoneGlobal].minimumHeatDemand = 0.; to be added in IHM.
-  }
-
-  // If no power on all zones => set power design.
-  if ( hasNoPower )
-  {
-    for ( long iZone = 0; iZone < pMOD->pConf->pconf->nb_zonesRTF; iZone++ )
-    {
-      long    nuZoneGlobal  = pMOD->pConf->pconf->zonesRTF[iZone].indexGlobal;
-      parameter.zones[nuZoneGlobal].maximumPower = pMOD->pConf->pconf->zonesRTF[iZone].Power;
-    }
-  }
+  ////------------------------------------------------------------------------------------
+  //// For all RTF zones.                                                               RTF measurement treatment.
+  //static long counterTestAllBurnersOff = 0;
+  //if ( ++counterTestAllBurnersOff > 1000 ) counterTestAllBurnersOff = 500;
+  //
+  //bool hasNoPower = true;
+  //for ( long iZone = 0; iZone < pMOD->pConf->pconf->nb_zonesRTF; iZone++ )
+  //{
+  //  struct EQP_pointers_zone_RTF *pZone = &pGEN->pHvm->phvm->meaSptCal.zonesRTF[iZone];
+  //  long    nuZoneGlobal  = pMOD->pConf->pconf->zonesRTF[iZone].indexGlobal;
+  //
+  //  // LHV.
+  //  double lhv = pMOD->pPhysic->fuelLHV( 0 );
+  //
+  //  if ( hasSimulationMode )
+  //  {
+  //    nbBurnerInDefaultRTF[iZone] = 0;
+  //  }
+  //
+  //  // If power exists.
+  //  if ( pMOD->pConf->pconf->zonesRTF[iZone].Power > 0. )
+  //  {
+  //    double maxGasFlow = pMOD->pConf->pconf->zonesRTF[iZone].Power / lhv; 
+  //    if ( ( maxGasFlow <= pMOD->pMath->epsilon ) || hasSimulationMode )
+  //      maxGasFlow = pMOD->pConf->pconf->zonesRTF[iZone].Power / lhv;
+  //    else
+  //      maxGasFlow = ( 1. - (double) nbBurnerInDefaultRTF[iZone] / (double) pMOD->pConf->pconf->zonesRTF[iZone].nb_tubes ) * pMOD->pConf->pconf->zonesRTF[iZone].Power / lhv;
+  //    maxGasFlow = max( maxGasFlow, 0. );
+  //    parameter.zones[nuZoneGlobal].maximumPower = maxGasFlow * lhv;
+  //
+  //    hasNoPower = hasNoPower && parameter.zones[nuZoneGlobal].maximumPower < pMOD->pMath->epsilon;
+  //
+  //    // Store number of tube operational.
+  //    pZone->pCalcul->nb_operationalBurners = pMOD->pConf->pconf->zonesRTF[iZone].nb_tubes - nbBurnerInDefaultRTF[iZone];
+  //  }
+  //
+  //
+  //  // Maximum heat demand.
+  //  parameter.zones[nuZoneGlobal].maximumHeatDemand = (double) ( pMOD->pConf->pconf->zonesRTF[iZone].nb_tubes - nbBurnerInDefaultRTF[iZone] ) / (double) pMOD->pConf->pconf->zonesRTF[iZone].nb_tubes * 100.;
+  //  
+  //  // parameter.zones[nuZoneGlobal].minimumHeatDemand = 0.; to be added in IHM.
+  //}
+  //
+  //// If no power on all zones => set power design.
+  //if ( hasNoPower )
+  //{
+  //  for ( long iZone = 0; iZone < pMOD->pConf->pconf->nb_zonesRTF; iZone++ )
+  //  {
+  //    long    nuZoneGlobal  = pMOD->pConf->pconf->zonesRTF[iZone].indexGlobal;
+  //    parameter.zones[nuZoneGlobal].maximumPower = pMOD->pConf->pconf->zonesRTF[iZone].Power;
+  //  }
+  //}
 
 
   //------------------------------------------------------------------------------------
@@ -2012,208 +3478,7 @@ void SPE_specific::measurementTreatement
   //  }
   //}
   
-  //------------------------------------------------------------------------------------
-  // JET.
-
-  // We read the xls file containing the JET maximum fan rotation speed depending of QT.
-
-  FILE *    pReadfile                       = nullptr;
-  long      status                          = 0;
-  char      fileNewPath   [DIM_PATH   + 1]  = {0};
-  char      fileDirectory [DIM_PATH   + 1]  = {0};
-  //char      traceTempo    [DIM_TRACES + 1]  = {0};
-  WCHAR *   readWord      [90            ]  = { 0 };    // Table of char mapped on a file line.
-  char      tempoName     [DIM_NAMES  + 1]  = { 0 };    // Tempory char name to recieved converted WCHAR.
   
-  _locale_t localParameters                    ;    // Local computer parameter.
-  localParameters = _get_current_locale()      ;    // Get local parameters.
-
-  for ( long i = 0; i < 90; i++ )
-  {
-    readWord[i] = new WCHAR[500 + 1];
-  }
-
-  strcpy_s( fileDirectory, DIM_PATH , pGEN->pointerPath   );
-  strcat_s( fileDirectory, DIM_PATH , DATA_PATH           );
-  strcpy_s( fileNewPath  , DIM_PATH , fileDirectory       );
-  strcat_s( fileNewPath  , DIM_PATH , this->AppName       );
-  strcat_s( fileNewPath  , DIM_PATH , "MaxZoneJET.csv"    );
-
-  // Open the trace file.
-  status = pMOD->pUtl->fileManagement ( &pReadfile                     // Entry: File definition.
-                              , fileNewPath                    // Entry: File Name. 
-                              , TYPE_OPEN_FILE_READ_WRITE      // Entry: Define action to realize on the file. 
-                              );
-  
-  // Reset memory of storing structure.
-  memset( &sJetMaxRotSpeedQt, 0, sizeof( sJetMaxRotSpeedQt ) );
-
-  if ( pReadfile != nullptr && status == 1 )
-  {
-    //------------------------------------------------------------------------------------
-    // We loop until the end of the file.
-    long loop = 0;
-    status = 1;
-    while ( status == 1 )
-    {
-      //------------------------------------------------------------------------------------
-      // Read a line.
-      WCHAR rline[512]      = { 0 };
-      char  result[5][64]   = { 0 };
-      unsigned length = 500;
-      long index = 0;
-      if ( fgetws( rline, 512, pReadfile ) != NULL ) 
-      {
-        swscanf_s( rline, L"%ls", readWord[0 ], length );
-
-        char texte[500] = {0};
-        pMOD->pUtl->convertWideCharToChar( readWord[0], 500,  texte );
-
-        char value[50] = {0};
-        for ( long i = 0; i < strlen( texte ); i++ )
-        {
-          if ( strncmp( &texte[i], ";", 1 ) == 0 )
-          //if ( texte[i] == ";" )
-          {
-            strncpy_s( result[index], value, strlen( value ) );
-            strcpy_s( value, "" );
-            index ++;
-          }
-          else
-          {
-            strncat_s( value, &texte[i], 1);
-          }
-        }
-        status = 1;
-      }
-      else 
-        status = 0;
-
-      //------------------------------------------------------------------------------------
-      // Comment treatment.
-      if ( wcscmp( readWord[0], L"") != 0 )
-      {
-        if      ( loop == 0 || loop == 1 ) { loop++; continue; }
-        else if ( loop == 2 )
-        {
-          sJetMaxRotSpeedQt.DefaultValues.zoneMaxDemand[0] = _atof_l(result[1], localParameters );
-          sJetMaxRotSpeedQt.DefaultValues.zoneMaxDemand[1] = _atof_l(result[2], localParameters );
-          sJetMaxRotSpeedQt.DefaultValues.zoneMaxDemand[2] = _atof_l(result[3], localParameters );
-        }
-        else
-        {
-          //pMOD->pUtl->convertWideCharToChar( readWord[0], 16,  sJetMaxRotSpeedQt.QTs[sJetMaxRotSpeedQt.nbQt].QT );
-          strncpy_s( sJetMaxRotSpeedQt.QTs[sJetMaxRotSpeedQt.nbQt].QT, result[0], strlen( result[0] ) );
-          sJetMaxRotSpeedQt.QTs[sJetMaxRotSpeedQt.nbQt].zoneMaxDemand[0] = _atof_l(result[1], localParameters );
-          sJetMaxRotSpeedQt.QTs[sJetMaxRotSpeedQt.nbQt].zoneMaxDemand[1] = _atof_l(result[2], localParameters );
-          sJetMaxRotSpeedQt.QTs[sJetMaxRotSpeedQt.nbQt].zoneMaxDemand[2] = _atof_l(result[3], localParameters );
-          sJetMaxRotSpeedQt.nbQt ++;
-        }
-      }
-
-      if ( ++loop >= 1000 ) break;
-    }
-
-    // Close the trace file.
-    status = pMOD->pUtl->fileManagement ( &pReadfile		                 // File definition.
-                                        , fileNewPath                    // File Name. 
-                                        , TYPE_CLOSE_FILE                // Define action to realize on the file. 
-                                        );
-  }
-  else
-  {
-    bool totototo = false;
-  }
-  
-  
-  
-
-  // Delete all memory used.
-  for ( long i = 0; i < 90; i++ )
-  {
-    delete( readWord[i] );
-  }
-
-  //------------------------------------------------------------------------------------
-  // Treatment of fans speed contraints.
-  bool    hasContraint      = false;
-  long    constraintIndex   = -1;
-  double  valuesMaxHD[3]    = {0};
-  if ( pGEN->pHvm->phvm->meaSptCal.lines[0].pSections[0] != nullptr )
-  {
-    long nuCoilOrdered      = pGEN->pHvm->phvm->meaSptCal.lines[0].pSections[0]->pCalcul->tracking.nu_coilInOrdered;
-    long nuCoilOrderedNext  = nuCoilOrdered + 1;
-
-    if ( nuCoilOrdered >= 0 && nuCoilOrdered < DIM_COILS && nuCoilOrderedNext >= 0 && nuCoilOrderedNext < DIM_COILS )
-    {
-
-      if ( pGEN->pHvm->phvm->coilQueue.pCoilOrdered[nuCoilOrdered    ] != nullptr &&
-           pGEN->pHvm->phvm->coilQueue.pCoilOrdered[nuCoilOrderedNext] != nullptr )
-      {
-        char QtCur[DIM_NAMES + 1] = {0};
-        char QtNxt[DIM_NAMES + 1] = {0};
-
-        strcpy_s( QtCur, pGEN->pHvm->phvm->coilQueue.pCoilOrdered[nuCoilOrdered    ]->data.steelGrade );
-        strcpy_s( QtNxt, pGEN->pHvm->phvm->coilQueue.pCoilOrdered[nuCoilOrderedNext]->data.steelGrade );
-
-        bool curHasQtConstraint = false;
-        bool nxtHasQtConstraint = false;
-        long curNuQt            = -1;
-        long nxtNuQt            = -1;
-
-        for ( long i = 0; i < sJetMaxRotSpeedQt.nbQt; i++ )
-        {
-          if ( strcmp( QtCur, sJetMaxRotSpeedQt.QTs[i].QT ) == 0 )
-          {
-            curNuQt             = i;
-            curHasQtConstraint  = true;
-          }
-
-          if ( strcmp( QtNxt, sJetMaxRotSpeedQt.QTs[i].QT ) == 0 )
-          {
-            nxtNuQt             = i;
-            nxtHasQtConstraint  = true;
-          }
-
-          if ( nxtHasQtConstraint && curHasQtConstraint ) break;
-        }
-
-        if ( curHasQtConstraint )
-        {
-          hasContraint = true;
-          valuesMaxHD[0] = sJetMaxRotSpeedQt.QTs[curNuQt].zoneMaxDemand[0];
-          valuesMaxHD[1] = sJetMaxRotSpeedQt.QTs[curNuQt].zoneMaxDemand[1];
-          valuesMaxHD[2] = sJetMaxRotSpeedQt.QTs[curNuQt].zoneMaxDemand[2];
-        }
-        else
-        {
-          valuesMaxHD[0] = sJetMaxRotSpeedQt.DefaultValues.zoneMaxDemand[0];
-          valuesMaxHD[1] = sJetMaxRotSpeedQt.DefaultValues.zoneMaxDemand[1];
-          valuesMaxHD[2] = sJetMaxRotSpeedQt.DefaultValues.zoneMaxDemand[2];
-        }
-
-        if ( nxtHasQtConstraint )
-        {
-          double remainingTime = pGEN->pHvm->phvm->meaSptCal.lines[0].pSections[0]->pCalcul->tracking.weldTime[0];
-
-          if (  remainingTime < 10. * 60. )
-          {
-            hasContraint = true;
-            valuesMaxHD[0] = min( valuesMaxHD[0], sJetMaxRotSpeedQt.QTs[nxtNuQt].zoneMaxDemand[0] );
-            valuesMaxHD[1] = min( valuesMaxHD[1], sJetMaxRotSpeedQt.QTs[nxtNuQt].zoneMaxDemand[1] );
-            valuesMaxHD[2] = min( valuesMaxHD[2], sJetMaxRotSpeedQt.QTs[nxtNuQt].zoneMaxDemand[2] );
-          }
-        }
-      }
-    }
-  }
-
-  if ( !hasContraint )
-  {
-    valuesMaxHD[0] = sJetMaxRotSpeedQt.DefaultValues.zoneMaxDemand[0];
-    valuesMaxHD[1] = sJetMaxRotSpeedQt.DefaultValues.zoneMaxDemand[1];
-    valuesMaxHD[2] = sJetMaxRotSpeedQt.DefaultValues.zoneMaxDemand[2];
-  }
 
   
   if ( this->hasSimulationMode )
@@ -2242,7 +3507,7 @@ void SPE_specific::measurementTreatement
       long    nuZoneGlobal  = pMOD->pConf->pconf->zonesJET[iZone].indexGlobal;
 
       // Maximum and minimum cool demand.
-      parameter.zones[nuZoneGlobal].maximumHeatDemand = valuesMaxHD[iZone];
+      parameter.zones[nuZoneGlobal].maximumHeatDemand = 100.;
       parameter.zones[nuZoneGlobal].minimumHeatDemand = 0.;
     }
   }
@@ -2273,153 +3538,19 @@ void SPE_specific::measurementTreatement
   // Hydrogen rate for JET.
   pGEN->pHvm->phvm->meaSptCal.sectionsJET[0].pMeasure->h2Rate = 5.;
 
-  // Section control.
-  if ( !hasSimulationMode )
-  {
-    for ( long i_section = 0; i_section < pMOD->pConf->pconf->lines[0].nb_sections; i_section++ )
-    {
-      pGEN->pHvm->phvm->meaSptCal.lines[0].pSections[i_section]->pMeasure->control = ( pGEN->pHvm->phvm->meaSptCal.lines[0].pSections[i_section]->pMeasure->control && 
-                                                                                      this->computerNumber == pGEN->pHvm->phvm->meaSptCal.measure.serverConnected );
-    }
-    
-    // Speed control.
-    pGEN->pHvm->phvm->meaSptCal.lines[0].pMeasure->speedControl = ( pGEN->pHvm->phvm->meaSptCal.lines[0].pMeasure->speedControl && 
-                                                                  this->computerNumber == pGEN->pHvm->phvm->meaSptCal.measure.serverConnected );
-  }
-
-  
-  //----------------------------------------------------------------------------
-  // Speed ramp adaptation depending of GI or GA.
-  bool isGA = false;
-  if ( pGEN->pHvm->phvm->meaSptCal.lines[0].pSections[0] != nullptr )
-  {
-    long nuCoilOrdered      = pGEN->pHvm->phvm->meaSptCal.lines[0].pSections[0]->pCalcul->tracking.nu_coilInOrdered;
-
-    if ( nuCoilOrdered >= 0 && nuCoilOrdered < DIM_COILS )
-    {
-      if ( pGEN->pHvm->phvm->coilQueue.pCoilOrdered[nuCoilOrdered] != nullptr )
-      {
-        if ( pGEN->pHvm->phvm->coilQueue.pCoilOrdered[nuCoilOrdered]->data.specific.isGAElseGi )
-        {
-          isGA = true;
-        }
-      }
-    }
-  }
-
-  if ( isGA ) parameter.maximumSpeedRamp = 4. / 60. / 60.;
-  else        parameter.maximumSpeedRamp = 16. / 60. / 60.;
-  
-  //----------------------------------------------------------------------------
-  // We are not allowed to increase speed till the queue of a GA has not gone through the Tower.
-  double safetyDistance = 200.; // JAB should be the distance between RTH pyro and tower exit. Mais je ne l'ai pas calculée.
-
-  static struct MOD_HV_coil_data lastCoil;
-  static struct MOD_HV_coil_data currentCoil;
-  if ( pGEN->pHvm->phvm->meaSptCal.lines[0].pSections[0] != nullptr )
-  {
-    long nuCoilOrdered      = pGEN->pHvm->phvm->meaSptCal.lines[0].pSections[0]->pCalcul->tracking.nu_coilInOrdered;
-    if ( nuCoilOrdered >= 0 && nuCoilOrdered < DIM_COILS )
-    {
-      if ( pGEN->pHvm->phvm->coilQueue.pCoilOrdered[nuCoilOrdered] != nullptr )
-      {
-        if ( strcmp( pGEN->pHvm->phvm->coilQueue.pCoilOrdered[nuCoilOrdered]->data.entryIdentity, 
-                     currentCoil.entryIdentity ) != 0 )
-        {
-          lastCoil    = currentCoil;
-          currentCoil = pGEN->pHvm->phvm->coilQueue.pCoilOrdered[nuCoilOrdered]->data;
-          sprintf_s( traceTempo, "GA constraint Tower. coil change. ID new last coil = %s, is GA constraint = %d, max speed alliation = %f m/min."
-                               , lastCoil.entryIdentity
-                               , lastCoil.specific.isGAElseGi
-                               , lastCoil.specific.alliationMaxSpeed / 60.
-                               );
-          pMOD->pUtl->writeTrace( ppTraceFilePointer    // Entry: File pointer.
-                                , traceTempo            // Entry: Trace string.
-                                );
-        }
-      }
-    }
-  }
-
-  // If last coil is GA, we cannot accelerate till xx meters.
-  static double lastWeldPosRTH                    = 0.;
-  static double elapseDistanceSinceWeldUnderpyro  = 1000.;
-  double        currentWeldPosRTH                 = 0.;
-  if ( pGEN->pHvm->phvm->meaSptCal.lines[0].pSections[0] != nullptr )
-  {
-    currentWeldPosRTH = pGEN->pHvm->phvm->meaSptCal.lines[0].pSections[0]->pCalcul->tracking.weldPosition[0];
-
-    // Check weld changement.
-    if ( currentWeldPosRTH > lastWeldPosRTH + 100. )
-    {
-      elapseDistanceSinceWeldUnderpyro = 0.;
-      sprintf_s( traceTempo, "GA constraint Tower. WELD CHANGE at RTH. currentWeldPosRTH = %f m, lastWeldPosRTH = %f m."
-                            , currentWeldPosRTH
-                            , lastWeldPosRTH
-                            );
-      pMOD->pUtl->writeTrace( ppTraceFilePointer    // Entry: File pointer.
-                            , traceTempo            // Entry: Trace string.
-                            );
-    }
-    else
-      elapseDistanceSinceWeldUnderpyro += lastWeldPosRTH - currentWeldPosRTH;
-
-    sprintf_s( traceTempo, "GA constraint Tower. elapseDistanceSinceWeldUnderpyro = %f m."
-                          , elapseDistanceSinceWeldUnderpyro
-                          );
-    pMOD->pUtl->writeTrace( ppTraceFilePointer    // Entry: File pointer.
-                  , traceTempo            // Entry: Trace string.
-                  );
-
-    lastWeldPosRTH = currentWeldPosRTH;
-
-    struct MOD_HV_coil_data previousCoil;
-    long nuCoilOrdered      = pGEN->pHvm->phvm->meaSptCal.lines[0].pSections[0]->pCalcul->tracking.nu_coilInOrdered;
-
-    if ( nuCoilOrdered > 0 ) 
-    {
-      long nuCoilPrevious = nuCoilOrdered - 1;
-      if ( pGEN->pHvm->phvm->coilQueue.pCoilOrdered[nuCoilPrevious] != nullptr ) previousCoil = pGEN->pHvm->phvm->coilQueue.pCoilOrdered[nuCoilPrevious]->data;
-      else                                                               previousCoil = lastCoil;
-
-      sprintf_s( traceTempo, "GA constraint Tower. Previous coil index = %d"
-                           , nuCoilOrdered
-                           );
-      pMOD->pUtl->writeTrace( ppTraceFilePointer    // Entry: File pointer.
-                            , traceTempo            // Entry: Trace string.
-                            );
-    }
-    else 
-      previousCoil = lastCoil;
-
-    // If last coil is GA.
-    if ( previousCoil.specific.isGAElseGi )
-    {
-      if ( elapseDistanceSinceWeldUnderpyro < safetyDistance )
-      {
-        if ( nuCoilOrdered > 0 && nuCoilOrdered < DIM_COILS )
-        {
-          // We apply last coil max speed on current coil.
-          if ( pGEN->pHvm->phvm->coilQueue.pCoilOrdered[nuCoilOrdered] != nullptr )
-          {
-            sprintf_s( traceTempo, "GA constraint Tower. APPLICATION. previousCoil.maxSpeedQuality = %f m/min, current.maxSpeedQuality = %f m/min, current ID = %s."
-                                 , previousCoil.maxSpeedQuality * 60.
-                                 , pGEN->pHvm->phvm->coilQueue.pCoilOrdered[nuCoilOrdered]->data.maxSpeedQuality * 60.
-                                 , pGEN->pHvm->phvm->coilQueue.pCoilOrdered[nuCoilOrdered]->data.entryIdentity
-                                 );
-            pMOD->pUtl->writeTrace( ppTraceFilePointer    // Entry: File pointer.
-                                  , traceTempo            // Entry: Trace string.
-                                  );
-
-            if ( previousCoil.maxSpeedQuality > pMOD->pMath->epsilon )
-              pGEN->pHvm->phvm->coilQueue.pCoilOrdered[nuCoilOrdered]->data.maxSpeedQuality = 
-                min( pGEN->pHvm->phvm->coilQueue.pCoilOrdered[nuCoilOrdered]->data.maxSpeedQuality, previousCoil.maxSpeedQuality );
-          }
-        }
-      }
-    }
-  }
-
+  //// Section control.
+  //if ( !hasSimulationMode )
+  //{
+  //  for ( long i_section = 0; i_section < pMOD->pConf->pconf->lines[0].nb_sections; i_section++ )
+  //  {
+  //    pGEN->pHvm->phvm->meaSptCal.lines[0].pSections[i_section]->pMeasure->control = ( pGEN->pHvm->phvm->meaSptCal.lines[0].pSections[i_section]->pMeasure->control && 
+  //                                                                                    this->computerNumber == pGEN->pHvm->phvm->meaSptCal.measure.serverConnected );
+  //  }
+  //  
+  //  // Speed control.
+  //  pGEN->pHvm->phvm->meaSptCal.lines[0].pMeasure->speedControl = ( pGEN->pHvm->phvm->meaSptCal.lines[0].pMeasure->speedControl && 
+  //                                                                this->computerNumber == pGEN->pHvm->phvm->meaSptCal.measure.serverConnected );
+  //}
 
   // RTS control is equal to RTH. We don't have separate boolean in communication. No SOAKING
   //pGEN->pHvm->phvm->meaSptCal.lines[0].pSections[2]->pMeasure->control = pGEN->pHvm->phvm->meaSptCal.lines[0].pSections[1]->pMeasure->control;
@@ -2727,73 +3858,73 @@ bool SPE_specific::jetOnLiveControl
   bool hasSpecificControl = false;
   long nuSectionGlobal    = pSectionMSC->pConfig->indexGlobal;
 
-  //pidGJC2FirstVent
-
-  // GI Product. => résistances coupées.
-  //  long nuSectionInLine = 4;
-  //    if ( pGEN->pHvm->phvm->meaSptCal.lines[0].pSections[nuSectionInLine]->pPyrometers[0]->pSetpoint ->temperature < pMOD->pConv->kelvin( 550. ) )
-
   // GJC.
   if      ( nuSectionInType == 0 )
   {
-    
-
-    //// For all zones.
-    //for ( long i_zone = 0; i_zone < pSectionMSC->pConfig->nb_zones; i_zone++ )
-    //{
-    //  struct EQP_pointers_zone_JET *pZoneMSC = ( struct EQP_pointers_zone_JET * ) pSectionMSC->pZones[i_zone];
-    //  pZoneMSC->pSetpoint->demandPercentage = pStageSection->powerDemand[i_zone] + pPidJET->exit.pid;
-    //  pZoneMSC->pSetpoint->demandPercentage = min ( max ( pZoneMSC->pSetpoint->demandPercentage, 5. ), 100. );
-    //}
   }
 
   // APC Up pass.
   else if ( nuSectionInType == 1 )
   {
+  }
+
+  // APC Down pass.
+  else if ( nuSectionInType == 2 )
+  {
+    hasSpecificControl = false;
+  }
+
+  return( !hasSpecificControl );
+}
+                                
+//============================================================================
+// SPE_specific: jetSaturationCalculation
+//
+//    Determine if each zone are saturated or not with specific zone control.
+//
+//
+//============================================================================
+bool SPE_specific::jetSaturationCalculation ( long                                           nuSectionInType, 
+                                              struct UTL_pid_objects *                       pPidJET, 
+                                              struct MOD_HV_pointers_section_line *          pSectionMSC, 
+                                              struct MOD_HV_coil_calcul_stage_section *      pStageSection,
+                                              double *                                       pHD,
+                                              struct MOD_HV_TRS_profil *                     pProfil,
+                                              double *                                       coolDemandMeasure,
+                                              bool                                           &isSaturatedMax,
+                                              bool                                           &isSaturatedMin
+                                              )
+{
+  bool hasSpecificControl = false;
+  long nuSectionGlobal    = pSectionMSC->pConfig->indexGlobal;
+
+  // GJC.
+  if      ( nuSectionInType == 0 )
+  {
+    
+  }
+  // APC Up pass.
+  else if ( nuSectionInType == 1 )
+  {
+    //// Store parameters.
+    //struct MOD_HV_Parameter   parameter;
+    //pGEN->pHvm->getParameters( &parameter, true );
+
     //hasSpecificControl = true;
-    //bool    isGIElseALUSI         = pGEN->pHvm->phvm->meaSptCal.lines[0].pSections[4]->pPyrometers[0]->pSetpoint ->temperature < pMOD->pConv->kelvin( 550. );
-    //double  targetTemp2FirstVent  = -1.;
-    //if ( isGIElseALUSI )  targetTemp2FirstVent = pMOD->pConv->kelvin( 420. ) - 30.;
-    //else                  targetTemp2FirstVent = pMOD->pConv->kelvin( 580. ) - 35.;
 
-    //// Save info.
-    //this->isGIElseALUSI = isGIElseALUSI;
-
-    //pidGJC2FirstVent.entry.processValue   = pProfil->stripTemperature[80][5];   // Index 80 is the element corresponding to the 2 ventilator of the GJC.
-    //pidGJC2FirstVent.entry.setPointValue  = targetTemp2FirstVent;
-    //pidGJC2FirstVent.data.Kp              =  - 0.15; 
-    //pidGJC2FirstVent.data.Ki              =  - 30. ; 
-    //pidGJC2FirstVent.data.maximumExit     =    100. - ( pStageSection->powerDemand[0] + pPidJET->exit.pid );
-    //pidGJC2FirstVent.data.minimumExit     =         - ( pStageSection->powerDemand[0] + pPidJET->exit.pid );
-    //pidGJC2FirstVent.data.deadBand        =     4. ;
-    //pidGJC2FirstVent.functions.automatic  =   true ;
-    //
-    //// Calculate PID.
-    //if ( abs( coolDemandMeasure[0] - ( pStageSection->powerDemand[0] + pidGJC2FirstVent.exit.pid ) ) < 3. )
-    //  pMOD->pPid->calculate( &pidGJC2FirstVent      // Modified: pid objects structure.
-    //                );
-    //
-    //for ( long i_zone = 0; i_zone < pSectionMSC->pConfig->nb_zones; i_zone++ )
+    //isSaturatedMax = true;
+    //isSaturatedMin = true;
+   
+    //for ( long i_zone = 2; i_zone < pSectionMSC->pConfig->nb_zones; i_zone++ )
     //{
     //  struct EQP_pointers_zone_JET *pZoneMSC = ( struct EQP_pointers_zone_JET * ) pSectionMSC->pZones[i_zone];
     //  long nuZoneGlobal = pSectionMSC->pZones[i_zone]->pConfig->indexGlobal;
-    //  
-    //  // First 2 zones.
-    //  if ( i_zone == 0 || i_zone == 1 )
-    //  {
-    //    //pZoneMSC->pSetpoint->demandPercentage = pStageSection->powerDemand[0] + pPidJET->exit.pid + pidGJC2FirstVent.exit.pid;
-    //    pZoneMSC->pSetpoint->demandPercentage = pStageSection->powerDemand[0] + pidGJC2FirstVent.exit.pid;
-    //    pZoneMSC->pSetpoint->demandPercentage = min ( max ( pZoneMSC->pSetpoint->demandPercentage,  pGEN->pHvm->phvm->parameter.zones[nuZoneGlobal].minimumHeatDemand ), 
-    //                                                                                                pGEN->pHvm->phvm->parameter.zones[nuZoneGlobal].maximumHeatDemand );
-    //  }
-    //  // Other zones.
-    //  else
-    //  {
-    //    //pZoneMSC->pSetpoint->demandPercentage = pStageSection->powerDemand[i_zone] + pPidJET->exit.pid;
-    //    pZoneMSC->pSetpoint->demandPercentage = pHD[i_zone] + pPidJET->exit.pid;
-    //    pZoneMSC->pSetpoint->demandPercentage = min ( max ( pZoneMSC->pSetpoint->demandPercentage,  pGEN->pHvm->phvm->parameter.zones[nuZoneGlobal].minimumHeatDemand ), 
-    //                                                                                                pGEN->pHvm->phvm->parameter.zones[nuZoneGlobal].maximumHeatDemand );
-    //  }
+
+    //  // Check maximum saturation.
+    //  isSaturatedMax &= coolDemandMeasure[i_zone] >= pGEN->pHvm->phvm->parameter.zones[nuZoneGlobal].maximumHeatDemand - 0.5;
+
+    //  // Check minimum saturation.
+    //  isSaturatedMin &= coolDemandMeasure[i_zone] <= pGEN->pHvm->phvm->parameter.zones[nuZoneGlobal].minimumHeatDemand + 0.5;
     //}
   }
 
@@ -2807,7 +3938,7 @@ bool SPE_specific::jetOnLiveControl
 }
 
 //============================================================================
-// SPE_specific: jetOnLiveControl
+// SPE_specific: jetOnLiveNotUnderControl
 //
 //    Realized specific JET on live control.
 //============================================================================
@@ -2823,33 +3954,6 @@ bool SPE_specific::jetOnLiveNotUnderControl
   // APC Up pass.
   if ( nuSectionInType == 1 )
   {
-    //hasSpecificControl = true;
-    //bool    isGIElseALUSI         = pGEN->pHvm->phvm->meaSptCal.lines[0].pSections[4]->pPyrometers[0]->pSetpoint ->temperature < pMOD->pConv->kelvin( 550. );
-    //double  targetTemp2FirstVent  = -1.;
-    //if ( isGIElseALUSI )  targetTemp2FirstVent = pMOD->pConv->kelvin( 420. ) - 30.;
-    //else                  targetTemp2FirstVent = pMOD->pConv->kelvin( 580. ) - 35.;
-    //
-    //// Save info.
-    //this->isGIElseALUSI = isGIElseALUSI;
-
-    //pidGJC2FirstVent.entry.processValue   = pProfil->stripTemperature[80][5];   // Index 80 is the element corresponding to the 2 ventilator of the GJC.
-    //pidGJC2FirstVent.entry.setPointValue  = targetTemp2FirstVent;
-    //pidGJC2FirstVent.data.Kp              =  - 0.15; 
-    //pidGJC2FirstVent.data.Ki              =  - 30. ; 
-    //pidGJC2FirstVent.data.maximumExit     =    70. ;
-    //pidGJC2FirstVent.data.minimumExit     =  - 70. ;
-    //pidGJC2FirstVent.data.deadBand        =     4. ;
-    //pidGJC2FirstVent.functions.automatic  =   false;
-    //
-    //// Force PID output.
-    //pMOD->pPid->fillInManual( &pidGJC2FirstVent                 // Modified: pid objects structure.
-    //                , cv      [0]                       // Entry   : Actual CV.
-    //                , modelSp [0]                       // Entry   : Actual model set point.
-    //                );
-
-    //// Calculate PID.
-    //pMOD->pPid->calculate( &pidGJC2FirstVent      // Modified: pid objects structure.
-    //             );
 
   }
 
@@ -2931,6 +4035,18 @@ bool SPE_specific::dffZoneMaximumPower( long nuSectionInLine, long nuZone, doubl
 {
   bool providedCalculation = false;
 
+   
+  return providedCalculation;
+}
+
+//============================================================================
+// SPE_specific: dffZoneFixedHD
+//
+//    Provide the dff fixed HD for the zone.
+//============================================================================
+bool SPE_specific::dffZoneFixedHD( long nuSectionInLine, long nuZone, double refparameterModelInput, double &FixedHD, bool &Imposed )
+{
+  bool providedCalculation = false;
    
   return providedCalculation;
 }
@@ -3075,676 +4191,35 @@ bool SPE_specific::rulesForSelectingHangingThBack
 //
 //    We read specifically the measurement. Replacement regular communication.
 //============================================================================
-void SPE_specific::readSpecificCommunication               ( FILE **traceFilePointer, struct MOD_HV_measures *    pMeasures, struct GEN_utility *  pGEN   )
+//void SPE_specific::readSpecificCommunication               ( FILE **traceFilePointer, struct MOD_HV_measures *    pMeasures, struct GEN_utility *  pGEN, bool isComExe, long lType )
+void SPE_specific::readSpecificCommunication               ( FILE **traceFilePointer, void *    pMeasures, struct GEN_utility *  pGEN, bool isComExe, long lType )
 {
   char traceTempo [DIM_TRACES + 1] = {0};
 
-  //strcpy_s( traceTempo, "selectConfigurationFile: size of char too low. " );
-  //pMOD->pUtl->writeTrace( traceFilePointer		  // Entry: File pointer.
-  //              , traceTempo            // Entry: Trace string.
-  //              );
-
-  // Secure access to global section.
-	gblSec.lockAccess();
+ // // Secure access to global section.
+	//gblSec.lockAccess();
   
-	/* Speed control */
-  if ( gblSec.pSec->m9101.ctrlvit == 1 )  pMeasures->line.speedControl = true;
-  else                                    pMeasures->line.speedControl = false;
-  
-	/* RTF control */
-	if ( gblSec.pSec->m9101.ctrlrtf == 1 )  pMeasures->sectionsRTF[0].control = true;
-  else                                    pMeasures->sectionsRTF[0].control = false;
-  
-	/* Soaking control */
-	if ( gblSec.pSec->m9101.ctrlmai == 1 )  pMeasures->sectionsBASE[0].control = true;
-  else                                    pMeasures->sectionsBASE[0].control = false;
-
-	/* JET cooling control */
-	if ( gblSec.pSec->m9101.ctrlref == 1 )  pMeasures->sectionsJET[0].control = true;
-  else                                    pMeasures->sectionsJET[0].control = false;
-
-	/*JET Z1 control */
-	if ( gblSec.pSec->m9101.ctrlrefz1 == 1 )  zoneOperationJET[0] = true;
-	else                                      zoneOperationJET[0] = false;
-
-	/* JET Z2 control */
-	if ( gblSec.pSec->m9101.ctrlrefz2 == 1 )  zoneOperationJET[1] = true;
-	else                                      zoneOperationJET[1] = false;
-
-	/* JET Z2 control */
-	if ( gblSec.pSec->m9101.ctrlrefz3 == 1 )  zoneOperationJET[2] = true;
-	else                                      zoneOperationJET[2] = false;
-
-	///* Speed control */
-	//if (gblSec.pSec->m9101.ctrlvit == 1)
-	//	sps_entry_rtf.s_mea.spd_auto = true;
-	//else
-	//	sps_entry_rtf.s_mea.spd_auto = false;
- //                    
-	///* RTF control */
-	//if (gblSec.pSec->m9101.ctrlrtf == 1)
-	//	sps_entry_rtf.s_mea.rtf_auto = true;
-	//else
-	//	sps_entry_rtf.s_mea.rtf_auto = false;
-
-	///* Soaking control */
-	//if (gblSec.pSec->m9101.ctrlmai == 1)
-	//	s_spe_mar.s_mea.Soa_ctl = true;
-	//else
-	//	s_spe_mar.s_mea.Soa_ctl = false;
-
-	///* JET cooling control */
-	//if (gblSec.pSec->m9101.ctrlref == 1)
-	//	sps_entry_cool.s_mea.jet_auto = true;
-	//else
-	//	sps_entry_cool.s_mea.jet_auto = false;
-
-	///*JET Z1 control */
-	//if (gblSec.pSec->m9101.ctrlrefz1 == 1)
-	//	sps_entry_cool.s_mea.on_zone_jet[0] = true;
-	//else
-	//	sps_entry_cool.s_mea.on_zone_jet[0] = false;
-
-	///* JET Z2 control */
-	//if (gblSec.pSec->m9101.ctrlrefz2 == 1)
-	//	sps_entry_cool.s_mea.on_zone_jet[1] = true;
-	//else
-	//	sps_entry_cool.s_mea.on_zone_jet[1] = false;
-
-	///* JET Z2 control */
-	//if (gblSec.pSec->m9101.ctrlrefz3 == 1)
-	//	sps_entry_cool.s_mea.on_zone_jet[2] = true;
-	//else
-	//	sps_entry_cool.s_mea.on_zone_jet[2] = false;
-
-	/* ------------------- */
-	/* Soaking mea.        */
-	/* ------------------- */
-  pMeasures->pyrometers[1].temperature = gblSec.pSec->m9101.tmpp4util + 273.15;      /* Soaking strip temperature measurement */
-	soakingTemperatureMeasurement =
-		gblSec.pSec->m9101.mai_tmp_z1 + gblSec.pSec->m9101.mai_tmp_z2 + 
-		gblSec.pSec->m9101.mai_tmp_z3 + gblSec.pSec->m9101.mai_tmp_z4 + 
-		gblSec.pSec->m9101.ter_tmp_z1 + gblSec.pSec->m9101.ter_tmp_z2 + 
-		gblSec.pSec->m9101.ter_tmp_z3;
-	soakingTemperatureMeasurement /= 7.;
-	soakingTemperatureMeasurement += 273.15;      /* average zone temperature measurement */
-
-
-	//s_spe_mar.s_mea.Strategy_soa = gblSec.pSec->m9101.stramai;               /* Soaking strategy */ NOT USED
-	//s_spe_mar.s_mea.Tmp_stp_soa = gblSec.pSec->m9101.tmpp4util + 273.f;      /* Soaking strip temperature measurement */
-	//avg_tmp_zon_soa =
-	//	gblSec.pSec->m9101.mai_tmp_z1 + gblSec.pSec->m9101.mai_tmp_z2 + 
-	//	gblSec.pSec->m9101.mai_tmp_z3 + gblSec.pSec->m9101.mai_tmp_z4 + 
-	//	gblSec.pSec->m9101.ter_tmp_z1 + gblSec.pSec->m9101.ter_tmp_z2 + 
-	//	gblSec.pSec->m9101.ter_tmp_z3;
-	//avg_tmp_zon_soa /= 7.f;
-	//s_spe_mar.s_mea.Tmp_zon_soa = avg_tmp_zon_soa + 273.f;      /* average zone temperature measurement */
-	//s_spe_mar.s_mea.Soa_ctl = gblSec.pSec->m9101.ctrlmai;
-
-	/* ------------------- */
-	/* RTF mea.            */
-	/* ------------------- */
-  pMeasures->pyrometers[0].temperature = gblSec.pSec->m9101.tmpp3util + 273.15;    /* RTF strip tmp. mea. */
-
-	//sps_entry_rtf.s_mea.tmp_strip = gblSec.pSec->m9101.tmpp3util + 273.f;    /* RTF strip tmp. mea. */
-
-  pMeasures->zonesRTF[0].demandPercentage = gblSec.pSec->m9101.cha_chargz1;                     /* RTF pwr Z1 */
-  pMeasures->zonesRTF[1].demandPercentage = gblSec.pSec->m9101.cha_chargz2;                     /* RTF pwr Z2 */
-  pMeasures->zonesRTF[2].demandPercentage = gblSec.pSec->m9101.cha_chargz3;                     /* RTF pwr Z3 */
-  pMeasures->zonesRTF[3].demandPercentage = gblSec.pSec->m9101.cha_chargz4;                     /* RTF pwr Z4 */
-  pMeasures->zonesRTF[4].demandPercentage = gblSec.pSec->m9101.cha_chargz5;                     /* RTF pwr Z5 */
-  pMeasures->zonesRTF[5].demandPercentage = gblSec.pSec->m9101.cha_chargz6;                     /* RTF pwr Z6 */
-  pMeasures->zonesRTF[6].demandPercentage = gblSec.pSec->m9101.cha_chargz7;                     /* RTF pwr Z7 */
-  pMeasures->zonesRTF[7].demandPercentage = gblSec.pSec->m9101.cha_chargz8;                     /* RTF pwr Z8 */
-  
-  // Number of tubes out of order.
-  nbBurnerInDefaultRTF[0] = gblSec.pSec->m9101.iNbOfTubeInDefaultZone1;
-  nbBurnerInDefaultRTF[1] = gblSec.pSec->m9101.iNbOfTubeInDefaultZone2;
-  nbBurnerInDefaultRTF[2] = gblSec.pSec->m9101.iNbOfTubeInDefaultZone3;
-  nbBurnerInDefaultRTF[3] = gblSec.pSec->m9101.iNbOfTubeInDefaultZone4;
-  nbBurnerInDefaultRTF[4] = gblSec.pSec->m9101.iNbOfTubeInDefaultZone5;
-  nbBurnerInDefaultRTF[5] = gblSec.pSec->m9101.iNbOfTubeInDefaultZone6;
-  nbBurnerInDefaultRTF[6] = gblSec.pSec->m9101.iNbOfTubeInDefaultZone7;
-  nbBurnerInDefaultRTF[7] = gblSec.pSec->m9101.iNbOfTubeInDefaultZone8;
-
-  // Soaking.  
-  nbBurnerInDefaultRTF[8]   = 0;
-  nbBurnerInDefaultRTF[9]   = 0;
-  nbBurnerInDefaultRTF[10]  = 0;
-  nbBurnerInDefaultRTF[11]  = 0;
-
-  //// The values before are not implemented yet.
-  //nbBurnerInDefaultRTF[0] = 1;
-  //nbBurnerInDefaultRTF[1] = 2;
-  //nbBurnerInDefaultRTF[2] = 1;
-  //nbBurnerInDefaultRTF[3] = 0;
-  //nbBurnerInDefaultRTF[4] = 0;
-  //nbBurnerInDefaultRTF[5] = 0;
-  //nbBurnerInDefaultRTF[6] = 0;
-  //nbBurnerInDefaultRTF[7] = 0;
-
-  // Correct demand %.
-  pMeasures->zonesRTF[0].demandPercentage *= ( 1. - nbBurnerInDefaultRTF[0] / 26. );
-  pMeasures->zonesRTF[1].demandPercentage *= ( 1. - nbBurnerInDefaultRTF[1] / 22. );
-  pMeasures->zonesRTF[2].demandPercentage *= ( 1. - nbBurnerInDefaultRTF[2] / 18. );
-  pMeasures->zonesRTF[3].demandPercentage *= ( 1. - nbBurnerInDefaultRTF[3] / 14. );
-  pMeasures->zonesRTF[4].demandPercentage *= ( 1. - nbBurnerInDefaultRTF[4] / 20. );
-  pMeasures->zonesRTF[5].demandPercentage *= ( 1. - nbBurnerInDefaultRTF[5] / 16. );
-  pMeasures->zonesRTF[6].demandPercentage *= ( 1. - nbBurnerInDefaultRTF[6] / 17. );
-  pMeasures->zonesRTF[7].demandPercentage *= ( 1. - nbBurnerInDefaultRTF[7] / 14. );
-  
-
-	//sps_entry_rtf.s_mea.pow_pct[0] = gblSec.pSec->m9101.cha_chargz1;                     /* RTF pwr Z1 */
-	//sps_entry_rtf.s_mea.pow_pct[1] = gblSec.pSec->m9101.cha_chargz2;                     /* RTF pwr Z2 */
-	//sps_entry_rtf.s_mea.pow_pct[2] = gblSec.pSec->m9101.cha_chargz3;                     /* RTF pwr Z3 */
-	//sps_entry_rtf.s_mea.pow_pct[3] = gblSec.pSec->m9101.cha_chargz4;                     /* RTF pwr Z4 */
-	//sps_entry_rtf.s_mea.pow_pct[4] = gblSec.pSec->m9101.cha_chargz5;                     /* RTF pwr Z5 */
-	//sps_entry_rtf.s_mea.pow_pct[5] = gblSec.pSec->m9101.cha_chargz6;                     /* RTF pwr Z6 */
-	//sps_entry_rtf.s_mea.pow_pct[6] = gblSec.pSec->m9101.cha_chargz7;                     /* RTF pwr Z7 */
-	//sps_entry_rtf.s_mea.pow_pct[7] = gblSec.pSec->m9101.cha_chargz8;                     /* RTF pwr Z8 */
-
-	rtfZonesFumesTemperature[0] = gblSec.pSec->m9101.cha_tmp_fumz1;   	       /* RTF tmp fumee Z1 */
-	rtfZonesFumesTemperature[1] = gblSec.pSec->m9101.cha_tmp_fumz2;   	       /* RTF tmp fumee Z2 */
-	rtfZonesFumesTemperature[2] = gblSec.pSec->m9101.cha_tmp_fumz3;   	       /* RTF tmp fumee Z3 */
-	rtfZonesFumesTemperature[3] = gblSec.pSec->m9101.cha_tmp_fumz4;   	       /* RTF tmp fumee Z4 */
-	rtfZonesFumesTemperature[4] = gblSec.pSec->m9101.cha_tmp_fumz5;   	       /* RTF tmp fumee Z5 */
-	rtfZonesFumesTemperature[5] = gblSec.pSec->m9101.cha_tmp_fumz6;   	       /* RTF tmp fumee Z6 */
-	rtfZonesFumesTemperature[6] = gblSec.pSec->m9101.cha_tmp_fumz7;   	       /* RTF tmp fumee Z7 */
-	rtfZonesFumesTemperature[7] = gblSec.pSec->m9101.cha_tmp_fumz8;   	       /* RTF tmp fumee Z8 */
-
-	//sps_entry_rtf.s_mea.pow_lim_overT[0] = gblSec.pSec->m9101.cha_tmp_fumz1;   	       /* RTF tmp fumee Z1 */
-	//sps_entry_rtf.s_mea.pow_lim_overT[1] = gblSec.pSec->m9101.cha_tmp_fumz2;   	       /* RTF tmp fumee Z2 */
-	//sps_entry_rtf.s_mea.pow_lim_overT[2] = gblSec.pSec->m9101.cha_tmp_fumz3;   	       /* RTF tmp fumee Z3 */
-	//sps_entry_rtf.s_mea.pow_lim_overT[3] = gblSec.pSec->m9101.cha_tmp_fumz4;   	       /* RTF tmp fumee Z4 */
-	//sps_entry_rtf.s_mea.pow_lim_overT[4] = gblSec.pSec->m9101.cha_tmp_fumz5;   	       /* RTF tmp fumee Z5 */
-	//sps_entry_rtf.s_mea.pow_lim_overT[5] = gblSec.pSec->m9101.cha_tmp_fumz6;   	       /* RTF tmp fumee Z6 */
-	//sps_entry_rtf.s_mea.pow_lim_overT[6] = gblSec.pSec->m9101.cha_tmp_fumz7;   	       /* RTF tmp fumee Z7 */
-	//sps_entry_rtf.s_mea.pow_lim_overT[7] = gblSec.pSec->m9101.cha_tmp_fumz8;   	       /* RTF tmp fumee Z8 */
-
-  // Tube temp. RTH.
-  long nuTh = pGEN->pHvm->phvm->meaSptCal.sectionsRTF[0].pZones[0]->pThermocouples[0]->pConfig->index;
-  nuTh = pGEN->pHvm->phvm->meaSptCal.sectionsRTF[0].pZones[0]->pThermocouples[0]->pConfig->index; pMeasures->thermocouples[nuTh].temperature = gblSec.pSec->m9101.cha_tmp_t1z1 + 273.15;
-	nuTh = pGEN->pHvm->phvm->meaSptCal.sectionsRTF[0].pZones[0]->pThermocouples[1]->pConfig->index; pMeasures->thermocouples[nuTh].temperature = gblSec.pSec->m9101.cha_tmp_t2z1 + 273.15;
-	nuTh = pGEN->pHvm->phvm->meaSptCal.sectionsRTF[0].pZones[0]->pThermocouples[2]->pConfig->index; pMeasures->thermocouples[nuTh].temperature = gblSec.pSec->m9101.cha_tmp_t3z1 + 273.15;
-
-	nuTh = pGEN->pHvm->phvm->meaSptCal.sectionsRTF[0].pZones[1]->pThermocouples[0]->pConfig->index; pMeasures->thermocouples[nuTh].temperature = gblSec.pSec->m9101.cha_tmp_t1z2 + 273.15;
-	nuTh = pGEN->pHvm->phvm->meaSptCal.sectionsRTF[0].pZones[1]->pThermocouples[1]->pConfig->index; pMeasures->thermocouples[nuTh].temperature = gblSec.pSec->m9101.cha_tmp_t2z2 + 273.15;
-	nuTh = pGEN->pHvm->phvm->meaSptCal.sectionsRTF[0].pZones[1]->pThermocouples[2]->pConfig->index; pMeasures->thermocouples[nuTh].temperature = gblSec.pSec->m9101.cha_tmp_t3z2 + 273.15;
-
-	nuTh = pGEN->pHvm->phvm->meaSptCal.sectionsRTF[0].pZones[2]->pThermocouples[0]->pConfig->index; pMeasures->thermocouples[nuTh].temperature = gblSec.pSec->m9101.cha_tmp_t1z3 + 273.15;
-	nuTh = pGEN->pHvm->phvm->meaSptCal.sectionsRTF[0].pZones[2]->pThermocouples[1]->pConfig->index; pMeasures->thermocouples[nuTh].temperature = gblSec.pSec->m9101.cha_tmp_t2z3 + 273.15;
-	nuTh = pGEN->pHvm->phvm->meaSptCal.sectionsRTF[0].pZones[2]->pThermocouples[2]->pConfig->index; pMeasures->thermocouples[nuTh].temperature = gblSec.pSec->m9101.cha_tmp_t3z3 + 273.15;
-
-	nuTh = pGEN->pHvm->phvm->meaSptCal.sectionsRTF[0].pZones[3]->pThermocouples[0]->pConfig->index; pMeasures->thermocouples[nuTh].temperature = gblSec.pSec->m9101.cha_tmp_t1z4 + 273.15;
-	nuTh = pGEN->pHvm->phvm->meaSptCal.sectionsRTF[0].pZones[3]->pThermocouples[1]->pConfig->index; pMeasures->thermocouples[nuTh].temperature = gblSec.pSec->m9101.cha_tmp_t2z4 + 273.15;
-	nuTh = pGEN->pHvm->phvm->meaSptCal.sectionsRTF[0].pZones[3]->pThermocouples[2]->pConfig->index; pMeasures->thermocouples[nuTh].temperature = gblSec.pSec->m9101.cha_tmp_t3z4 + 273.15;
-
-	nuTh = pGEN->pHvm->phvm->meaSptCal.sectionsRTF[0].pZones[4]->pThermocouples[0]->pConfig->index; pMeasures->thermocouples[nuTh].temperature = gblSec.pSec->m9101.cha_tmp_t1z5 + 273.15;
-	nuTh = pGEN->pHvm->phvm->meaSptCal.sectionsRTF[0].pZones[4]->pThermocouples[1]->pConfig->index; pMeasures->thermocouples[nuTh].temperature = gblSec.pSec->m9101.cha_tmp_t2z5 + 273.15;
-	nuTh = pGEN->pHvm->phvm->meaSptCal.sectionsRTF[0].pZones[4]->pThermocouples[2]->pConfig->index; pMeasures->thermocouples[nuTh].temperature = gblSec.pSec->m9101.cha_tmp_t3z5 + 273.15;
-
-	nuTh = pGEN->pHvm->phvm->meaSptCal.sectionsRTF[0].pZones[5]->pThermocouples[0]->pConfig->index; pMeasures->thermocouples[nuTh].temperature = gblSec.pSec->m9101.cha_tmp_t1z6 + 273.15;
-	nuTh = pGEN->pHvm->phvm->meaSptCal.sectionsRTF[0].pZones[5]->pThermocouples[1]->pConfig->index; pMeasures->thermocouples[nuTh].temperature = gblSec.pSec->m9101.cha_tmp_t2z6 + 273.15;
-	nuTh = pGEN->pHvm->phvm->meaSptCal.sectionsRTF[0].pZones[5]->pThermocouples[2]->pConfig->index; pMeasures->thermocouples[nuTh].temperature = gblSec.pSec->m9101.cha_tmp_t3z6 + 273.15;
-
-	nuTh = pGEN->pHvm->phvm->meaSptCal.sectionsRTF[0].pZones[6]->pThermocouples[0]->pConfig->index; pMeasures->thermocouples[nuTh].temperature = gblSec.pSec->m9101.cha_tmp_t1z7 + 273.15;
-	nuTh = pGEN->pHvm->phvm->meaSptCal.sectionsRTF[0].pZones[6]->pThermocouples[1]->pConfig->index; pMeasures->thermocouples[nuTh].temperature = gblSec.pSec->m9101.cha_tmp_t2z7 + 273.15;
-	nuTh = pGEN->pHvm->phvm->meaSptCal.sectionsRTF[0].pZones[6]->pThermocouples[2]->pConfig->index; pMeasures->thermocouples[nuTh].temperature = gblSec.pSec->m9101.cha_tmp_t3z7 + 273.15;
-
-	nuTh = pGEN->pHvm->phvm->meaSptCal.sectionsRTF[0].pZones[7]->pThermocouples[0]->pConfig->index; pMeasures->thermocouples[nuTh].temperature = gblSec.pSec->m9101.cha_tmp_t1z8 + 273.15;
-	nuTh = pGEN->pHvm->phvm->meaSptCal.sectionsRTF[0].pZones[7]->pThermocouples[1]->pConfig->index; pMeasures->thermocouples[nuTh].temperature = gblSec.pSec->m9101.cha_tmp_t2z8 + 273.15;
-	nuTh = pGEN->pHvm->phvm->meaSptCal.sectionsRTF[0].pZones[7]->pThermocouples[2]->pConfig->index; pMeasures->thermocouples[nuTh].temperature = gblSec.pSec->m9101.cha_tmp_t3z8 + 273.15;
-
-  // Tube temp. SOA.
-  nuTh = pGEN->pHvm->phvm->meaSptCal.sectionsRTF[1].pZones[0]->pThermocouples[0]->pConfig->index; pMeasures->thermocouples[nuTh].temperature = gblSec.pSec->m9101.fMaintienTempTubeZ1_1 + 273.15;
-	nuTh = pGEN->pHvm->phvm->meaSptCal.sectionsRTF[1].pZones[0]->pThermocouples[1]->pConfig->index; pMeasures->thermocouples[nuTh].temperature = gblSec.pSec->m9101.fMaintienTempTubeZ1_2 + 273.15;
-	nuTh = pGEN->pHvm->phvm->meaSptCal.sectionsRTF[1].pZones[0]->pThermocouples[2]->pConfig->index; pMeasures->thermocouples[nuTh].temperature = gblSec.pSec->m9101.fMaintienTempTubeZ1_3 + 273.15;
-  
-  nuTh = pGEN->pHvm->phvm->meaSptCal.sectionsRTF[1].pZones[1]->pThermocouples[0]->pConfig->index; pMeasures->thermocouples[nuTh].temperature = gblSec.pSec->m9101.fMaintienTempTubeZ2_1 + 273.15;
-	nuTh = pGEN->pHvm->phvm->meaSptCal.sectionsRTF[1].pZones[1]->pThermocouples[1]->pConfig->index; pMeasures->thermocouples[nuTh].temperature = gblSec.pSec->m9101.fMaintienTempTubeZ2_2 + 273.15;
-	nuTh = pGEN->pHvm->phvm->meaSptCal.sectionsRTF[1].pZones[1]->pThermocouples[2]->pConfig->index; pMeasures->thermocouples[nuTh].temperature = gblSec.pSec->m9101.fMaintienTempTubeZ2_3 + 273.15;
-
-  nuTh = pGEN->pHvm->phvm->meaSptCal.sectionsRTF[1].pZones[2]->pThermocouples[0]->pConfig->index; pMeasures->thermocouples[nuTh].temperature = gblSec.pSec->m9101.fMaintienTempTubeZ3_1 + 273.15;
-	nuTh = pGEN->pHvm->phvm->meaSptCal.sectionsRTF[1].pZones[2]->pThermocouples[1]->pConfig->index; pMeasures->thermocouples[nuTh].temperature = gblSec.pSec->m9101.fMaintienTempTubeZ3_2 + 273.15;
-	nuTh = pGEN->pHvm->phvm->meaSptCal.sectionsRTF[1].pZones[2]->pThermocouples[2]->pConfig->index; pMeasures->thermocouples[nuTh].temperature = gblSec.pSec->m9101.fMaintienTempTubeZ3_3 + 273.15;
-
-  nuTh = pGEN->pHvm->phvm->meaSptCal.sectionsRTF[1].pZones[3]->pThermocouples[0]->pConfig->index; pMeasures->thermocouples[nuTh].temperature = gblSec.pSec->m9101.fMaintienTempTubeZ4_1 + 273.15;
-	nuTh = pGEN->pHvm->phvm->meaSptCal.sectionsRTF[1].pZones[3]->pThermocouples[1]->pConfig->index; pMeasures->thermocouples[nuTh].temperature = gblSec.pSec->m9101.fMaintienTempTubeZ4_2 + 273.15;
-	nuTh = pGEN->pHvm->phvm->meaSptCal.sectionsRTF[1].pZones[3]->pThermocouples[2]->pConfig->index; pMeasures->thermocouples[nuTh].temperature = gblSec.pSec->m9101.fMaintienTempTubeZ4_3 + 273.15;
-
-  // Power demand SOA.
-  long nuZoneInType = pGEN->pHvm->phvm->meaSptCal.sectionsRTF[1].pZones[0]->pConfig->indexType;
-  pMeasures->zonesRTF[nuZoneInType].demandPercentage = gblSec.pSec->m9101.fMaintienChargeZ1;
-
-  nuZoneInType = pGEN->pHvm->phvm->meaSptCal.sectionsRTF[1].pZones[1]->pConfig->indexType;
-  pMeasures->zonesRTF[nuZoneInType].demandPercentage = gblSec.pSec->m9101.fMaintienChargeZ2;
-
-  nuZoneInType = pGEN->pHvm->phvm->meaSptCal.sectionsRTF[1].pZones[2]->pConfig->indexType;
-  pMeasures->zonesRTF[nuZoneInType].demandPercentage = gblSec.pSec->m9101.fMaintienChargeZ3;
-
-  nuZoneInType = pGEN->pHvm->phvm->meaSptCal.sectionsRTF[1].pZones[3]->pConfig->indexType;
-  pMeasures->zonesRTF[nuZoneInType].demandPercentage = gblSec.pSec->m9101.fMaintienChargeZ4;
-
-	///* If the line is running */
-	//if (gblSec.pSec->m9101.vitcen != 0.f)
-	//{
-	//    temp1 = gblSec.pSec->m9101.cha_tmp_t1z1 <= (TUBE_MAX_TEMP + 130.f - 273.f);                                  
-	//    temp2 = gblSec.pSec->m9101.cha_tmp_t2z1 <= (TUBE_MAX_TEMP + 130.f - 273.f);                                  
-	//    temp3 = gblSec.pSec->m9101.cha_tmp_t3z1 <= (TUBE_MAX_TEMP + 130.f - 273.f);                                  
-	//    sps_entry_rtf.s_mea.tmp_tub[0] = 0.f;
-	//    if (temp1) sps_entry_rtf.s_mea.tmp_tub[0] = max(sps_entry_rtf.s_mea.tmp_tub[0],gblSec.pSec->m9101.cha_tmp_t1z1);
-	//    if (temp2) sps_entry_rtf.s_mea.tmp_tub[0] = max(sps_entry_rtf.s_mea.tmp_tub[0],gblSec.pSec->m9101.cha_tmp_t2z1);
-	//    if (temp3) sps_entry_rtf.s_mea.tmp_tub[0] = max(sps_entry_rtf.s_mea.tmp_tub[0],gblSec.pSec->m9101.cha_tmp_t3z1);
-
-	//	temp1 = gblSec.pSec->m9101.cha_tmp_t1z2 <= (TUBE_MAX_TEMP + 130.f - 273.f);
-	//	temp2 = gblSec.pSec->m9101.cha_tmp_t2z2 <= (TUBE_MAX_TEMP + 130.f - 273.f);
-	//	temp3 = gblSec.pSec->m9101.cha_tmp_t3z2 <= (TUBE_MAX_TEMP + 130.f - 273.f);
-	//    sps_entry_rtf.s_mea.tmp_tub[1] = 0.f;
-	//    if (temp1) sps_entry_rtf.s_mea.tmp_tub[1] = max(sps_entry_rtf.s_mea.tmp_tub[1],gblSec.pSec->m9101.cha_tmp_t1z2);   
-	//    if (temp2) sps_entry_rtf.s_mea.tmp_tub[1] = max(sps_entry_rtf.s_mea.tmp_tub[1],gblSec.pSec->m9101.cha_tmp_t2z2);  
-	//    if (temp3) sps_entry_rtf.s_mea.tmp_tub[1] = max(sps_entry_rtf.s_mea.tmp_tub[1],gblSec.pSec->m9101.cha_tmp_t3z2);
-
-	//	temp1 = gblSec.pSec->m9101.cha_tmp_t1z3 <= (TUBE_MAX_TEMP + 130.f - 273.f);
-	//	temp2 = gblSec.pSec->m9101.cha_tmp_t2z3 <= (TUBE_MAX_TEMP + 130.f - 273.f);
-	//	temp3 = gblSec.pSec->m9101.cha_tmp_t3z3 <= (TUBE_MAX_TEMP + 130.f - 273.f);
-	//    sps_entry_rtf.s_mea.tmp_tub[2] = 0.f;
-	//    if (temp1) sps_entry_rtf.s_mea.tmp_tub[2] = max(sps_entry_rtf.s_mea.tmp_tub[2],gblSec.pSec->m9101.cha_tmp_t1z3);
-	//    if (temp2) sps_entry_rtf.s_mea.tmp_tub[2] = max(sps_entry_rtf.s_mea.tmp_tub[2],gblSec.pSec->m9101.cha_tmp_t2z3);
-	//    if (temp3) sps_entry_rtf.s_mea.tmp_tub[2] = max(sps_entry_rtf.s_mea.tmp_tub[2],gblSec.pSec->m9101.cha_tmp_t3z3);
-
-	//	temp1 = gblSec.pSec->m9101.cha_tmp_t1z4 <= (TUBE_MAX_TEMP + 130.f - 273.f);
-	//	temp2 = gblSec.pSec->m9101.cha_tmp_t2z4 <= (TUBE_MAX_TEMP + 130.f - 273.f);
-	//	temp3 = gblSec.pSec->m9101.cha_tmp_t3z4 <= (TUBE_MAX_TEMP + 130.f - 273.f);
-	//    sps_entry_rtf.s_mea.tmp_tub[3] = 0.f;
-	//    if (temp1) sps_entry_rtf.s_mea.tmp_tub[3] = max(sps_entry_rtf.s_mea.tmp_tub[3],gblSec.pSec->m9101.cha_tmp_t1z4);
-	//    if (temp2) sps_entry_rtf.s_mea.tmp_tub[3] = max(sps_entry_rtf.s_mea.tmp_tub[3],gblSec.pSec->m9101.cha_tmp_t2z4);
-	//    if (temp3) sps_entry_rtf.s_mea.tmp_tub[3] = max(sps_entry_rtf.s_mea.tmp_tub[3],gblSec.pSec->m9101.cha_tmp_t3z4);
-
-	//	temp1 = gblSec.pSec->m9101.cha_tmp_t1z5 <= (TUBE_MAX_TEMP + 130.f - 273.f);
-	//	temp2 = gblSec.pSec->m9101.cha_tmp_t2z5 <= (TUBE_MAX_TEMP + 130.f - 273.f);
-	//	temp3 = gblSec.pSec->m9101.cha_tmp_t3z5 <= (TUBE_MAX_TEMP + 130.f - 273.f);
-	//    sps_entry_rtf.s_mea.tmp_tub[4] = 0.f;
-	//    if (temp1) sps_entry_rtf.s_mea.tmp_tub[4] = max(sps_entry_rtf.s_mea.tmp_tub[4],gblSec.pSec->m9101.cha_tmp_t1z5);
-	//    if (temp2) sps_entry_rtf.s_mea.tmp_tub[4] = max(sps_entry_rtf.s_mea.tmp_tub[4],gblSec.pSec->m9101.cha_tmp_t2z5);
-	//    if (temp3) sps_entry_rtf.s_mea.tmp_tub[4] = max(sps_entry_rtf.s_mea.tmp_tub[4],gblSec.pSec->m9101.cha_tmp_t3z5);
-
-	//	temp1 = gblSec.pSec->m9101.cha_tmp_t1z6 <= (TUBE_MAX_TEMP + 130.f - 273.f);
-	//	temp2 = gblSec.pSec->m9101.cha_tmp_t2z6 <= (TUBE_MAX_TEMP + 130.f - 273.f);
-	//	temp3 = gblSec.pSec->m9101.cha_tmp_t3z6 <= (TUBE_MAX_TEMP + 130.f - 273.f);
-	//    sps_entry_rtf.s_mea.tmp_tub[5] = 0.f;
-	//    if (temp1) sps_entry_rtf.s_mea.tmp_tub[5] = max(sps_entry_rtf.s_mea.tmp_tub[5],gblSec.pSec->m9101.cha_tmp_t1z6);
-	//    if (temp2) sps_entry_rtf.s_mea.tmp_tub[5] = max(sps_entry_rtf.s_mea.tmp_tub[5],gblSec.pSec->m9101.cha_tmp_t2z6);
-	//    if (temp3) sps_entry_rtf.s_mea.tmp_tub[5] = max(sps_entry_rtf.s_mea.tmp_tub[5],gblSec.pSec->m9101.cha_tmp_t3z6);
-
-	//	temp1 = gblSec.pSec->m9101.cha_tmp_t1z7 <= (TUBE_MAX_TEMP + 130.f - 273.f);
-	//	temp2 = gblSec.pSec->m9101.cha_tmp_t2z7 <= (TUBE_MAX_TEMP + 130.f - 273.f);
-	//	temp3 = gblSec.pSec->m9101.cha_tmp_t3z7 <= (TUBE_MAX_TEMP + 130.f - 273.f);
-	//    sps_entry_rtf.s_mea.tmp_tub[6] = 0.f;   
-	//    if (temp1) sps_entry_rtf.s_mea.tmp_tub[6] = max(sps_entry_rtf.s_mea.tmp_tub[6],gblSec.pSec->m9101.cha_tmp_t1z7);
-	//    if (temp2) sps_entry_rtf.s_mea.tmp_tub[6] = max(sps_entry_rtf.s_mea.tmp_tub[6],gblSec.pSec->m9101.cha_tmp_t2z7);
-	//    if (temp3) sps_entry_rtf.s_mea.tmp_tub[6] = max(sps_entry_rtf.s_mea.tmp_tub[6],gblSec.pSec->m9101.cha_tmp_t3z7);
-
-	//	temp1 = gblSec.pSec->m9101.cha_tmp_t1z8 <= (TUBE_MAX_TEMP + 130.f - 273.f);
-	//	temp2 = gblSec.pSec->m9101.cha_tmp_t2z8 <= (TUBE_MAX_TEMP + 130.f - 273.f);
-	//	temp3 = gblSec.pSec->m9101.cha_tmp_t3z8 <= (TUBE_MAX_TEMP + 130.f - 273.f);
-	//    sps_entry_rtf.s_mea.tmp_tub[7] = 0.f;
-	//    if (temp1) sps_entry_rtf.s_mea.tmp_tub[7] = max(sps_entry_rtf.s_mea.tmp_tub[7],gblSec.pSec->m9101.cha_tmp_t1z8);
-	//    if (temp2) sps_entry_rtf.s_mea.tmp_tub[7] = max(sps_entry_rtf.s_mea.tmp_tub[7],gblSec.pSec->m9101.cha_tmp_t2z8);
-	//    if (temp3) sps_entry_rtf.s_mea.tmp_tub[7] = max(sps_entry_rtf.s_mea.tmp_tub[7],gblSec.pSec->m9101.cha_tmp_t3z8);
-
-	//    for (i_zon = 0;i_zon < NB_ZON_RTF;i_zon++)
-	//	sps_entry_rtf.s_mea.tmp_tub[i_zon] += 273.f;
-
-	//    	sps_entry_rtf.s_mea.tmp_zon[0] = 273.f + gblSec.pSec->m9101.cha_tmp_z1;
-	//	sps_entry_rtf.s_mea.tmp_zon[1] = 273.f + gblSec.pSec->m9101.cha_tmp_z2;
-	//	sps_entry_rtf.s_mea.tmp_zon[2] = 273.f + gblSec.pSec->m9101.cha_tmp_z3;
-	//	sps_entry_rtf.s_mea.tmp_zon[3] = 273.f + gblSec.pSec->m9101.cha_tmp_z4;
-	//	sps_entry_rtf.s_mea.tmp_zon[4] = 273.f + gblSec.pSec->m9101.cha_tmp_z5;
-	//	sps_entry_rtf.s_mea.tmp_zon[5] = 273.f + gblSec.pSec->m9101.cha_tmp_z6;
-	//	sps_entry_rtf.s_mea.tmp_zon[6] = 273.f + gblSec.pSec->m9101.cha_tmp_z7;
-	//	sps_entry_rtf.s_mea.tmp_zon[7] = 273.f + gblSec.pSec->m9101.cha_tmp_z8; 
-	//	    	
-	//}
-	///* The line is stopped */
-	//else
-	//{
-	//	sps_entry_rtf.s_mea.tmp_tub[0] = 273.f + gblSec.pSec->m9101.cha_tmp_z1;
-	//	sps_entry_rtf.s_mea.tmp_tub[1] = 273.f + gblSec.pSec->m9101.cha_tmp_z2;
-	//	sps_entry_rtf.s_mea.tmp_tub[2] = 273.f + gblSec.pSec->m9101.cha_tmp_z3;
-	//	sps_entry_rtf.s_mea.tmp_tub[3] = 273.f + gblSec.pSec->m9101.cha_tmp_z4;
-	//	sps_entry_rtf.s_mea.tmp_tub[4] = 273.f + gblSec.pSec->m9101.cha_tmp_z5;
-	//	sps_entry_rtf.s_mea.tmp_tub[5] = 273.f + gblSec.pSec->m9101.cha_tmp_z6;
-	//	sps_entry_rtf.s_mea.tmp_tub[6] = 273.f + gblSec.pSec->m9101.cha_tmp_z7;
-	//	sps_entry_rtf.s_mea.tmp_tub[7] = 273.f + gblSec.pSec->m9101.cha_tmp_z8;
-	//}
-
-	///* For all RTF zones */
-	//for (i_zon=0; i_zon<NB_ZON_RTF; i_zon++)
-	//{
-	//	sps_entry_rtf.s_mea.on_zone[i_zon] = true;
-	//}
-
-	/* ------------------- */
-	/* JET mea.            */
-	/* ------------------- */
-  pMeasures->pyrometers[2].temperature = gblSec.pSec->m9101.tmprefutil + 273.15;      /* JET strip tmp. mea. */
-	pMeasures->zonesJET[0].demandPercentage = ( gblSec.pSec->m9101.ref_cha_z1av + gblSec.pSec->m9101.ref_cha_z1ar ) / 2.;
-	pMeasures->zonesJET[1].demandPercentage = ( gblSec.pSec->m9101.ref_cha_z2av + gblSec.pSec->m9101.ref_cha_z2ar ) / 2.;
-	pMeasures->zonesJET[2].demandPercentage = ( gblSec.pSec->m9101.ref_cha_z3av + gblSec.pSec->m9101.ref_cha_z3ar ) / 2.;
-
-	//sps_entry_cool.s_mea.tmp_stp_jet = gblSec.pSec->m9101.tmprefutil + 273.f;      /* JET strip tmp. mea. */
-	//sps_entry_cool.s_mea.pow_pct_jet[0] = (gblSec.pSec->m9101.ref_cha_z1av + gblSec.pSec->m9101.ref_cha_z1ar) / 2.f;
-	//sps_entry_cool.s_mea.pow_pct_jet[1] = (gblSec.pSec->m9101.ref_cha_z2av + gblSec.pSec->m9101.ref_cha_z2ar) / 2.f;
-	//sps_entry_cool.s_mea.pow_pct_jet[2] = (gblSec.pSec->m9101.ref_cha_z3av + gblSec.pSec->m9101.ref_cha_z3ar) / 2.f;
-
-	/* ------------------- */
-	/* Speed limitation    */
-	/* ------------------- */
-
-	//s_spe_mar.s_mea.V_mac_Alia = gblSec.pSec->m9101.vitmaxalia / 60.f;       /* Maximum aliation speed */
-	//s_spe_mar.s_mea.V_mac_ope = gblSec.pSec->m9101.vitmaxope / 60.f;         /* Maximum operator speed */
-  
-	alliationMaxSpeed                                   = gblSec.pSec->m9101.vitmaxalia / 60.;          /* Maximum aliation speed */
-	pMeasures->line.operatorSpeedLimit = gblSec.pSec->m9101.vitmaxope  / 60.;          /* Maximum operator speed */
-
-	/* ------------------- */
-	/* Weld position       */
-	/* ------------------- */
-
-	/* coils weld position */
-	//for (i_coil=0; i_coil<s_coil.nb_coil; i_coil++)
-	//	Weld_Pos[i_coil] = gblSec.pSec->m9100[i_coil].posqb_sormain - LGT_P3_P4 + 100.f;    // #define LGT_P3_P4   106.238f 
-
-  // Store first 2 welds and ID.
-  pMeasures->line.weldPositions[0] = gblSec.pSec->m9100[0].posqb_sormain + 95. - 15.; //- 106.238 + 100.; // 75 meters retrieve modification Avec Domi V. 30/06/2021
-  pMeasures->line.weldPositions[1] = gblSec.pSec->m9100[1].posqb_sormain + 95. - 15.; //- 106.238 + 100.; // 75 meters retrieve modification Avec Domi V. 30/06/2021
-  pMeasures->line.weldPositions[2] = gblSec.pSec->m9100[2].posqb_sormain + 95. - 15.; //- 106.238 + 100.; // 75 meters retrieve modification Avec Domi V. 30/06/2021
-  strncpy_s( pMeasures->line.entryIdentities[0], gblSec.pSec->m9100[0].nobob, 8 );
-  strncpy_s( pMeasures->line.entryIdentities[1], gblSec.pSec->m9100[1].nobob, 8 );
-
-	///* Find first coil in queue */
-	//loop = 0;
-	//idx = -1;
-	//do
-	//{
-	//	idx ++;
-	//	loop ++;
-	//} while (Weld_Pos[idx] < 0 && loop<MAX_ITER);
-
-	///* Check if first coil in queue has changed */
-	//if (strncmp(s_coil.s_coil_data[0].id, gblSec.pSec->m9100[idx].nobob,8) != 0 &&
-	//     strcmp(s_coil.s_coil_data[0].id, "") != 0)
-	//{
-	//    /* Initialize Anticipation time boolean */
-	//    Anticip = false;
- //
-	//    s_coil.s_coil_data_last = s_coil.s_coil_data[0];
-	//    for ( i_coil=idx;i_coil<s_coil.nb_coil;i_coil++ )
-	//    {
-	//    	if (i_coil+idx > s_coil.nb_coil - 1)
-	//    	{
-	//    	/* raz infos dernier numero de bobine */
-	//    	s_coil.s_coil_data[i_coil].thi = 0.f;
-	//    	s_coil.s_coil_data[i_coil].wid = 0.f;
-	//    	s_coil.s_coil_data_old[i_coil] = s_coil.s_coil_data[i_coil];
-	//    	}
-	//    	else	    	 
-	//    	{
-	//       	    s_coil.s_coil_data[i_coil-idx] = s_coil.s_coil_data[i_coil];
-	//    	    s_coil.s_coil_data_old[i_coil-idx] = s_coil.s_coil_data[i_coil]; 
-
-	//    	    if (!s_coil.s_coil_data[i_coil - idx].valid)
- //           	    {   
- //           	    	/*trans_result[i_coil-idx].spd = 0.f;*/ 
- //           	    	/*trans_result[i_coil-idx].tmp_stp_rtf = 0.f + 273.f;*/  
- //           	    	/*trans_result[i_coil-idx].tmp_tub_ref = 0.f + 273.f;*/
- //           	    }
- //           	    else   
-	//    	    	trans_result[i_coil-idx] = trans_result[i_coil];
-	//    	}   
-	//    }
-	//    s_coil.s_coil_data[2].Trs_cal = false;
-	//    Print_Traces_File("Depillage: %s --> %s", s_coil.s_coil_data[0].id, gblSec.pSec->m9100[idx].nobob);                            
-	//    time(&time_weld2);
-	//}
-
-	/* Store Line speed */
-	//sps_entry_rtf.s_mea.spd = gblSec.pSec->m9101.vitcen;
-	//sps_entry_rtf.s_mea.spd /= 60.f;
-	//sps_entry_cool.s_mea.spd = gblSec.pSec->m9101.vitcen;
-	//sps_entry_cool.s_mea.spd /= 60.f;
-  pMeasures->line.speed = gblSec.pSec->m9101.vitcen / 60.;
-  //pMeasures->line.speed = 0.;
-
-	/* Store weld position */
-	//s_coil.s_coil_data[0].head_weld_pos = gblSec.pSec->m9100[idx].posqb_sormain;
-	//sps_entry_rtf.s_mea.lgt_rtf = Weld_Pos[idx];	    /* gblSec.pSec->m9100[idx].posqb_sormain; */
-	//if (sps_entry_rtf.s_mea.spd != 0.f)
-	//	sps_entry_rtf.s_mea.time_rtf = sps_entry_rtf.s_mea.lgt_rtf / sps_entry_rtf.s_mea.spd;
-	//else
-	//	sps_entry_rtf.s_mea.time_rtf = 10000.f;
-
-	///* JET cooling weld position  */
-	//if (idx == 0)
-	//	sps_entry_cool.s_mea.lgt_jet = gblSec.pSec->m9100[idx].posqb_sormain;
-	//else
-	//	sps_entry_cool.s_mea.lgt_jet = gblSec.pSec->m9100[idx-1].posqb_sormain;
-
-	//if (sps_entry_cool.s_mea.spd != 0.f)
-	//	sps_entry_cool.s_mea.time_jet = sps_entry_cool.s_mea.lgt_jet / sps_entry_cool.s_mea.spd;
-	//else
-	//	sps_entry_cool.s_mea.time_jet = 10000.f;
-
-	/* ------------------- */
-	/* Coil queue          */
-	/* ------------------- */
-
-  for ( long iCoil = 0; iCoil < DIM_COILS; iCoil++ )
+  if      ( lType == TYPE_MSG_STATIC_SIMUL_CALC )
   {
-    memset( &pMeasures->coils[iCoil], 0, sizeof( struct  MOD_HV_coil_data_simulation ) );
-		strncpy ( pMeasures->coils[iCoil].entryIdentity, gblSec.pSec->m9100[iCoil].nobob, 8 );
+    //struct MOD_HV_coil_steady_simulation *   pStage = ( struct MOD_HV_coil_steady_simulation * ) pMeasures;
+    struct MOD_HV_measures *   pMeasure = ( struct MOD_HV_measures * ) pMeasures;
 
-    pMeasures->coils[iCoil].thickness = gblSec.pSec->m9100[iCoil].epais / 1000000.;
-    pMeasures->coils[iCoil].width     = gblSec.pSec->m9100[iCoil].larg  / 1000.;
-    pMeasures->coils[iCoil].length    = gblSec.pSec->m9100[iCoil].longueur;
-    
-    pMeasures->coils[iCoil].sections[0].stripTemp.target = pMOD->pConv->kelvin( gblSec.pSec->m9100[iCoil].tbvischa );
-    pMeasures->coils[iCoil].sections[0].stripTemp.lower  = pMOD->pConv->kelvin( gblSec.pSec->m9100[iCoil].tbmincha );
-    pMeasures->coils[iCoil].sections[0].stripTemp.upper  = pMOD->pConv->kelvin( gblSec.pSec->m9100[iCoil].tbmaxcha );
-    pMeasures->coils[iCoil].sections[0].stripTemp.target += gblSec.pSec->m9101.offset_tmp;
+    if ( this->lScenarioIDCurrent > 0 )
+    {
+      pScenarioDataInput->coils[0]  = pMeasure->coils[0];
+      pScenarioDataInput->coils[1]  = pMeasure->coils[1];
+      pScenarioDataInput->line      = pMeasure->line;
+      bIsScenarioCalculationAUthorized = false;
+    }
 
-    pMeasures->coils[iCoil].sections[1].stripTemp.target = pMOD->pConv->kelvin( gblSec.pSec->m9100[iCoil].tbvismai );
-    pMeasures->coils[iCoil].sections[1].stripTemp.lower  = pMOD->pConv->kelvin( gblSec.pSec->m9100[iCoil].tbminmai );
-    pMeasures->coils[iCoil].sections[1].stripTemp.upper  = pMOD->pConv->kelvin( gblSec.pSec->m9100[iCoil].tbmaxmai );
-    pMeasures->coils[iCoil].sections[1].stripTemp.target += gblSec.pSec->m9101.offset_tmp;
-    
-    pMeasures->coils[iCoil].sections[2].stripTemp.target = pMOD->pConv->kelvin( gblSec.pSec->m9100[iCoil].tbvisref );
-    pMeasures->coils[iCoil].sections[2].stripTemp.lower  = pMOD->pConv->kelvin( gblSec.pSec->m9100[iCoil].tbminref );
-    pMeasures->coils[iCoil].sections[2].stripTemp.upper  = pMOD->pConv->kelvin( gblSec.pSec->m9100[iCoil].tbmaxref );
-    
-		strcpy_s( pMeasures->coils[iCoil].steelGrade      , gblSec.pSec->m9100[iCoil].typeacier );   /* Steel code */
-		strcpy_s( pMeasures->coils[iCoil].specific.sGiOrGa, gblSec.pSec->m9100[iCoil].Produit   );   /* Produit */
-    if      ( strncmp( pMeasures->coils[iCoil].specific.sGiOrGa, "GI", 2 ) == 0 )
-      pMeasures->coils[iCoil].specific.isGAElseGi = false;
-    else if ( strncmp( pMeasures->coils[iCoil].specific.sGiOrGa, "GA", 2 ) == 0 )
-      pMeasures->coils[iCoil].specific.isGAElseGi = true;
-    else
-      pMeasures->coils[iCoil].specific.isGAElseGi = false;
-
-    pMeasures->coils[iCoil].maxSpeedQuality            = gblSec.pSec->m9100[iCoil].vmax  / 60.;
-    pMeasures->coils[iCoil].specific.alliationMaxSpeed = gblSec.pSec->m9101.vitmaxalia   / 60.;
-
-    pMeasures->coils[iCoil].maxSpeedQuality = min( pMeasures->coils[iCoil].maxSpeedQuality, 
-                                                   pMeasures->coils[iCoil].specific.alliationMaxSpeed );
 
   }
-  
-  //char traceTempo [DIM_TRACES + 1] = {0};
-  sprintf_s( traceTempo, "vitmaxalia = %f m/min, iModelUsed = %d, vmax 0 = %f m/min, vmax 1 = %f m/min, vmax 2 = %f m/min "
-                        , gblSec.pSec->m9101.vitmaxalia
-                        , gblSec.pSec->m9101.iModelUsed
-                        , gblSec.pSec->m9100[0].vmax
-                        , gblSec.pSec->m9100[1].vmax
-                        , gblSec.pSec->m9100[2].vmax
-                        );
-  pMOD->pUtl->writeTrace( traceFilePointer      // Entry: File pointer.
-                        , traceTempo            // Entry: Trace string.
-                        );
-
-  // Server connected.
-  //gblSec.pSec->m9101.iModelUsed = 1;
-  pMeasures->serverConnected = gblSec.pSec->m9101.iModelUsed;
-  //pMeasures->serverConnected = 0;
-
-	///* For all coils */
-	//for (i_coil=0; i_coil<s_coil.nb_coil - idx; i_coil++ )
-	//{
-		//s_coil.s_coil_data[i_coil].id[0] =  '\0';   	    	    	    	    /* Coil number */
-		//strncpy ( s_coil.s_coil_data[i_coil].id, gblSec.pSec->m9100[idx + i_coil].nobob, 8 );
-		//s_coil.s_coil_data[i_coil].thi = gblSec.pSec->m9100[idx + i_coil].epais;             /* strip thickness */
-		//s_coil.s_coil_data[i_coil].thi /= 1000000.f;
-		//s_coil.s_coil_data[i_coil].lgt = gblSec.pSec->m9100[idx + i_coil].longueur;          /* strip length */
-		//s_coil.s_coil_data[i_coil].wid = gblSec.pSec->m9100[idx + i_coil].larg;              /* strip width */
-		//s_coil.s_coil_data[i_coil].wid /= 1000.f;
-		//s_coil.s_coil_data[i_coil].tmp_in = 20.f + 273.f;              /* entry temperature */
-		//s_coil.s_coil_data[i_coil].offset_tmp = gblSec.pSec->m9101.offset_tmp;
-		//s_coil.s_coil_data[i_coil].tmp_low_rtf = gblSec.pSec->m9100[idx + i_coil].tbmincha;  /* lower tgt RTF */
-		//s_coil.s_coil_data[i_coil].tmp_low_rtf += 273.f;
-		//s_coil.s_coil_data[i_coil].tmp_upp_rtf = gblSec.pSec->m9100[idx + i_coil].tbmaxcha;  /* upper tgt RTF */
-		//s_coil.s_coil_data[i_coil].tmp_upp_rtf += 273.f;
-		//s_coil.s_coil_data[i_coil].tmp_tgt_rtf = gblSec.pSec->m9100[idx + i_coil].tbvischa;  /* tgt RTF */
-		//s_coil.s_coil_data[i_coil].tmp_tgt_rtf += 273.f;
-	 //   	/* Sur bobine en cours ou suivante */
-	 //   	if (i_coil == 0 || i_coil == 1 || i_coil == 2)                   
-		//    s_coil.s_coil_data[i_coil].tmp_tgt_rtf += gblSec.pSec->m9101.offset_tmp;
-		//s_coil.s_coil_data[i_coil].tmp_low_jet = gblSec.pSec->m9100[idx + i_coil].tbminref;  /* lower tgt JET */
-		//s_coil.s_coil_data[i_coil].tmp_low_jet += 273.f;
-		//s_coil.s_coil_data[i_coil].tmp_upp_jet = gblSec.pSec->m9100[idx + i_coil].tbmaxref;  /* upper tgt JET */
-		//s_coil.s_coil_data[i_coil].tmp_upp_jet += 273.f;
-		//s_coil.s_coil_data[i_coil].tmp_tgt_jet = gblSec.pSec->m9100[idx + i_coil].tbvisref;  /* tgt JET */
-		//s_coil.s_coil_data[i_coil].tmp_tgt_jet += 273.f;
-		//s_coil.s_coil_data[i_coil].s_spe.Tmp_stp_soa = gblSec.pSec->m9100[idx + i_coil].tbvismai;
-		//s_coil.s_coil_data[i_coil].s_spe.Tmp_stp_soa += 273.f;
-	 //   	/* Sur bobine en cours ou suivante */
-	 //   	if (i_coil == 0 || i_coil == 1 || i_coil == 2)                   
-		//    s_coil.s_coil_data[i_coil].s_spe.Tmp_stp_soa += gblSec.pSec->m9101.offset_tmp;
-		//s_coil.s_coil_data[i_coil].s_spe.Tmp_upp_soa = gblSec.pSec->m9100[idx + i_coil].tbmaxmai;
-		//s_coil.s_coil_data[i_coil].s_spe.Tmp_upp_soa += 273.f;
-		//s_coil.s_coil_data[i_coil].s_spe.Tmp_low_soa = gblSec.pSec->m9100[idx + i_coil].tbminmai;
-		//s_coil.s_coil_data[i_coil].s_spe.Tmp_low_soa += 273.f;
-		//strcpy(s_coil.s_coil_data[i_coil].s_spe.Steel_code, gblSec.pSec->m9100[idx + i_coil].typeacier);   /* Steel code */
-		//s_coil.s_coil_data[i_coil].emi_rtf = Spe_Ktl_emis_search (i_coil);      /* Emissivity */
-		//s_coil.s_coil_data[i_coil].Bisra = 2;                          /* Bisra code */
-		//s_coil.s_coil_data[i_coil].Cool_rate[0] = gblSec.pSec->m9100[idx + i_coil].rampz1;   /* Cooling ramp Z1 */
-		//s_coil.s_coil_data[i_coil].Cool_rate[1] = gblSec.pSec->m9100[idx + i_coil].rampz2;   /* Cooling ramp Z2 */
-		//s_coil.s_coil_data[i_coil].Cool_rate[2] = gblSec.pSec->m9100[idx + i_coil].rampz3;   /* Cooling ramp Z3 */
-		//s_coil.s_coil_data[i_coil].dummy = 0;                          /* No dummy coil */
-		//s_coil.s_coil_data[i_coil].head_weld_pos = gblSec.pSec->m9100[idx + i_coil].posqb_sormain - LGT_P3_P4 + 100.; /* Weld pos */
-
-		//// If next coil emissivity class is not known. We copy current emissivity in it.
-		//if (s_coil.s_coil_data[i_coil].N_cla == MAX_NB_CLA - 1 && i_coil == 1)
-		//{
-		//	s_adp.s_pdt_RTF[s_coil.s_coil_data[i_coil].N_cla][0].alpha = s_adp.s_pdt_RTF[s_coil.s_coil_data[i_coil - 1].N_cla][0].alpha;
-		//	s_coil.s_coil_data[i_coil].emi_rtf = s_adp.s_pdt_RTF[s_coil.s_coil_data[i_coil].N_cla][0].alpha * EMI_COIL;
-		//}
-		//
-		//// We securise the second coil to be at +/- 0.03 on the first coil emissivity.
-		//if ( i_coil == 1 )
-		//{
-		//	s_adp.s_pdt_RTF[s_coil.s_coil_data[i_coil].N_cla][0].alpha = min(max(	s_adp.s_pdt_RTF[s_coil.s_coil_data[i_coil    ].N_cla][0].alpha, 
-		//																			s_adp.s_pdt_RTF[s_coil.s_coil_data[i_coil - 1].N_cla][0].alpha - 0.03), 
-		//																			s_adp.s_pdt_RTF[s_coil.s_coil_data[i_coil - 1].N_cla][0].alpha + 0.03);
-		//	s_coil.s_coil_data[i_coil].emi_rtf = s_adp.s_pdt_RTF[s_coil.s_coil_data[i_coil].N_cla][0].alpha * EMI_COIL;
-		//}
-		
-		/* ==================================================
-	    		 SPEED MANAGEMENT
-		   ================================================== */
-
-	    	///* Consigne en vitesse rampée */
-	    	//if (!sps_entry_rtf.s_mea.spd_auto)             
-	    	//    Spd_spt = sps_entry_rtf.s_mea.spd;                                            
-      //          
-	    	///* Rampe sur la consigne en vitesse opérateur */
-	    	//vit_max_ope = gblSec.pSec->m9101.vitmaxope / 60.f;                              
-	    	//if (Spd_spt != vit_max_ope)    
-	    	//{                  
-	    	//    if (strncmp(gblSec.pSec->m9100[idx + i_coil].Produit, "GI", 2) == 0)
-	    	//    	spd_ramp = 150.f / 60.f;                    
-	    	//    else if (strncmp(gblSec.pSec->m9100[idx + i_coil].Produit, "GA", 2) == 0)
-	    	//    	spd_ramp = 150.f / 60.f;  
-	    	//    else    
-	    	//    	spd_ramp = 150.f / 60.f;      
-
-	    	//    if ( vit_max_ope < Spd_spt)
-	    	//    {
-	    	//    	if (sps_entry_rtf.s_mea.spd < Spd_spt + 2.f / 60.f)
-	    	//    	    Spd_spt = max(min(Spd_spt - spd_ramp, sps_entry_rtf.s_mea.spd - spd_ramp), vit_max_ope);
-	    	//    }
-	    	//    else if (vit_max_ope > Spd_spt)
-	    	//    {
-	    	//    	if (sps_entry_rtf.s_mea.spd > Spd_spt - 2.f / 60.f)                                           
-	    	//    	    Spd_spt = min(max(Spd_spt + spd_ramp, sps_entry_rtf.s_mea.spd + spd_ramp), vit_max_ope);
-	    	//    }                                                                                               
-	    	//}
-
-		///* Coil maximum speed */
-		//s_coil.s_coil_data[i_coil].spd_max = gblSec.pSec->m9100[idx + i_coil].vmax / 60.f;         /* Maximum speed */
-	 //   	s_coil.s_coil_data[i_coil].Vmax_boballia = gblSec.pSec->m9100[idx + i_coil].vmax / 60.f;
-	 //   	s_coil.s_coil_data[i_coil].Vmax_boballia = 
-	 //   	    	min(s_coil.s_coil_data[i_coil].Vmax_boballia, gblSec.pSec->m9101.vitmaxalia / 60.f);                                 
-	 //   	/* Sur bobine en cours ou suivante */                                          
-	 //   	if (i_coil == 0 || i_coil == 1 || i_coil == 2)                   
-		//    s_coil.s_coil_data[i_coil].spd_max =             
-		//	    min (s_coil.s_coil_data[i_coil].spd_max, gblSec.pSec->m9101.vitmaxope / 60.f); /* Speed lim. operator */
-		//s_coil.s_coil_data[i_coil].spd_max =                                                     
-		//	min (s_coil.s_coil_data[i_coil].spd_max, gblSec.pSec->m9101.vitmaxalia / 60.f);/* Speed lim. aliation */
-
-		//s_coil.s_coil_data[i_coil].spd_dec = 0.f;                      /* Speed limitation */
-		//s_coil.s_coil_data[i_coil].spd_min = MIN_SPEED;                /* Minimum speed */
-
-		///* if speed set in automatic */
-		//if (sps_entry_rtf.s_mea.spd_auto)
-		//{
-		//	/*s_coil.s_coil_data[i_coil].spd  = s_coil.s_coil_data[i_coil].spd_max;*/
-		//}
-		//else /* speed in manuel */
-		//{
-		//	/* If first coil in queue */
-		//	if (i_coil == 0 || i_coil == 1 || i_coil == 2)      
-		//	{
-	 //   	    	    if (sps_entry_rtf.s_mea.spd > MIN_SPEED)
-	 //   	    	    {
-		//		s_coil.s_coil_data[i_coil].spd_max = sps_entry_rtf.s_mea.spd;
-		//		s_coil.s_coil_data[i_coil].spd	   = sps_entry_rtf.s_mea.spd;
-		//		s_coil.s_coil_data[i_coil].spd_dec = sps_entry_rtf.s_mea.spd;
-	 //   	    	    }
-	 //   	    	    else
-	 //   	    	    {
-		//		s_coil.s_coil_data[i_coil].spd	   = s_coil.s_coil_data[i_coil].spd_max;
-		//		s_coil.s_coil_data[i_coil].spd_dec = s_coil.s_coil_data[i_coil].spd_max;           
-	 //   	    	    }
-		//		s_coil.s_coil_data[i_coil].spd_min = min ( s_coil.s_coil_data[i_coil].spd_min,
-	 //   	    	    	    	    	    	    	    	   s_coil.s_coil_data[i_coil].spd_max );
-		//	} /*  If first coil in queue*/
-		//}/* speed in manuel */
-
-	    ///* Gestion des rampes de vitesses */
-	    ///* ============================== */
-	    //if (i_coil == 0)                          
-	    //{
-	    //	if (strncmp(gblSec.pSec->m9100[idx + i_coil].Produit, "GI", 2) == 0)
-	    //	    Coef_ramp = 3.0f;  
-	    //	else if (strncmp(gblSec.pSec->m9100[idx + i_coil].Produit, "GA", 2) == 0)
-	    //	    Coef_ramp = 0.8f;
-	    //	else
-	    //	    Coef_ramp = 3.0f;                                       
-	    //}                                                                   
-//
-//} /* For all coils */
-
-	// Release access to global section.
-	gblSec.unLockAccess();
+  else if ( lType == TYPE_MSG_MEASUREMENT )
+  {
+    struct MOD_HV_measures *   pMeasure = ( struct MOD_HV_measures * ) pMeasures;
+  }
+	//// Release access to global section.
+	//gblSec.unLockAccess();
 
 
   return;
@@ -3756,203 +4231,36 @@ void SPE_specific::readSpecificCommunication               ( FILE **traceFilePoi
 //
 //    We write specifically the setpoint. Replacement regular communication.
 //============================================================================
-void SPE_specific::writeSpecificCommunication              ( FILE **traceFilePointer, struct MOD_HV_setpoints *   pSetpoints, struct GEN_utility *  pGEN  )
+//void SPE_specific::writeSpecificCommunication              ( FILE **traceFilePointer, struct MOD_HV_setpoints *   pSetpoints, struct GEN_utility *  pGEN, bool isComExe, long lType )
+void SPE_specific::writeSpecificCommunication              ( FILE **traceFilePointer, void *   pSetpoints, struct GEN_utility *  pGEN, bool isComExe, long lType )
 {
   char traceTempo [DIM_TRACES + 1] = {0};
 
-  // If V-iModel used.
-  if (gblSec.pSec->m9101.iModelUsed == 1)
+ // // Secure access to global section.
+	//gblSec.lockAccess();
+  
+  if      ( lType == TYPE_MSG_STATIC_SIMUL_CALC )
   {
-    // Secure access to global section.
-	  gblSec.lockAccess();
-
-	  //for ( i_coil = 0; i_coil<s_coil.nb_coil; i_coil++ )
-	  //{
-	  //    for ( i_coil_gbl = 0; i_coil_gbl<8; i_coil_gbl++ )
-	  //    {
-	  //    	if ( strncmp ( gblSec.pSec->m9100[i_coil_gbl].nobob, 
-	  //    	    	       s_coil.s_coil_data[i_coil].id, 8 ) == 0 )
-	  //    	{
-	  //    	    gblSec.pSec->m9100[i_coil_gbl].vMaxLTOP =
-	  //    	    	s_coil.s_coil_data[i_coil].spd_max_th * 60.f;
- 	  //    	    break;
-	  //    	}
-	  //    } 
-	  //}
-
-    for ( long iCoil = 0; iCoil < DIM_COILS; iCoil++ )
-    {
-      for ( long jCoil = 0; jCoil < DIM_COILS; jCoil++ )
-      {
-        if ( strncmp (  gblSec.pSec->m9100[jCoil].nobob, 
-                        pGEN->pHvm->phvm->coilQueue.coils[iCoil].data.entryIdentity, 8 ) == 0 )
-        {
-          gblSec.pSec->m9100[jCoil].vMaxLTOP = pGEN->pHvm->phvm->coilQueue.coils[iCoil].calcul.maximumLineSpeed * 60.;
-          break;
-        }
-      }
-    }
-
-	  /* RTF control mode*/
-	  //gblSec.pSec->mcons.mode_ctrl = sps_act_sp_rtf.ctl_pow;
-    gblSec.pSec->mcons.mode_ctrl = pGEN->pHvm->phvm->meaSptCal.sectionsRTF[0].pSetpoint->controlType;
-
-	  /* RTF set points validity*/
-	  //gblSec.pSec->mcons.fou_cons_valid = sps_act_sp_rtf.Valid;
-    gblSec.pSec->mcons.fou_cons_valid = pGEN->pHvm->phvm->meaSptCal.sectionsRTF[0].pSetpoint->valid;
-
-	  /* RTF powers*/
-	  //gblSec.pSec->mcons.cha_cons_chargz1 = sps_act_sp_rtf.pow_pct[0];
-	  //gblSec.pSec->mcons.cha_cons_chargz2 = sps_act_sp_rtf.pow_pct[1];
-	  //gblSec.pSec->mcons.cha_cons_chargz3 = sps_act_sp_rtf.pow_pct[2];
-	  //gblSec.pSec->mcons.cha_cons_chargz4 = sps_act_sp_rtf.pow_pct[3];
-	  //gblSec.pSec->mcons.cha_cons_chargz5 = sps_act_sp_rtf.pow_pct[4];
-	  //gblSec.pSec->mcons.cha_cons_chargz6 = sps_act_sp_rtf.pow_pct[5];
-	  //gblSec.pSec->mcons.cha_cons_chargz7 = sps_act_sp_rtf.pow_pct[6];
-	  //gblSec.pSec->mcons.cha_cons_chargz8 = sps_act_sp_rtf.pow_pct[7];
-    gblSec.pSec->mcons.cha_cons_chargz1 = pGEN->pHvm->phvm->meaSptCal.zonesRTF[0].pSetpoint->demandPercentage;
-    gblSec.pSec->mcons.cha_cons_chargz2 = pGEN->pHvm->phvm->meaSptCal.zonesRTF[1].pSetpoint->demandPercentage;
-    gblSec.pSec->mcons.cha_cons_chargz3 = pGEN->pHvm->phvm->meaSptCal.zonesRTF[2].pSetpoint->demandPercentage;
-    gblSec.pSec->mcons.cha_cons_chargz4 = pGEN->pHvm->phvm->meaSptCal.zonesRTF[3].pSetpoint->demandPercentage;
-    gblSec.pSec->mcons.cha_cons_chargz5 = pGEN->pHvm->phvm->meaSptCal.zonesRTF[4].pSetpoint->demandPercentage;
-    gblSec.pSec->mcons.cha_cons_chargz6 = pGEN->pHvm->phvm->meaSptCal.zonesRTF[5].pSetpoint->demandPercentage;
-    gblSec.pSec->mcons.cha_cons_chargz7 = pGEN->pHvm->phvm->meaSptCal.zonesRTF[6].pSetpoint->demandPercentage;
-    gblSec.pSec->mcons.cha_cons_chargz8 = pGEN->pHvm->phvm->meaSptCal.zonesRTF[7].pSetpoint->demandPercentage;
-    
-    // Correct demand %.
-    if ( 26 - nbBurnerInDefaultRTF[0] > 0 ) gblSec.pSec->mcons.cha_cons_chargz1 *= ( 26.f / ( 26.f - (float) nbBurnerInDefaultRTF[0] ) );
-    if ( 22 - nbBurnerInDefaultRTF[1] > 0 ) gblSec.pSec->mcons.cha_cons_chargz2 *= ( 22.f / ( 22.f - (float) nbBurnerInDefaultRTF[1] ) );
-    if ( 18 - nbBurnerInDefaultRTF[2] > 0 ) gblSec.pSec->mcons.cha_cons_chargz3 *= ( 18.f / ( 18.f - (float) nbBurnerInDefaultRTF[2] ) );
-    if ( 14 - nbBurnerInDefaultRTF[3] > 0 ) gblSec.pSec->mcons.cha_cons_chargz4 *= ( 14.f / ( 14.f - (float) nbBurnerInDefaultRTF[3] ) );
-    if ( 20 - nbBurnerInDefaultRTF[4] > 0 ) gblSec.pSec->mcons.cha_cons_chargz5 *= ( 20.f / ( 20.f - (float) nbBurnerInDefaultRTF[4] ) );
-    if ( 16 - nbBurnerInDefaultRTF[5] > 0 ) gblSec.pSec->mcons.cha_cons_chargz6 *= ( 16.f / ( 16.f - (float) nbBurnerInDefaultRTF[5] ) );
-    if ( 17 - nbBurnerInDefaultRTF[6] > 0 ) gblSec.pSec->mcons.cha_cons_chargz7 *= ( 17.f / ( 17.f - (float) nbBurnerInDefaultRTF[6] ) );
-    if ( 14 - nbBurnerInDefaultRTF[7] > 0 ) gblSec.pSec->mcons.cha_cons_chargz8 *= ( 14.f / ( 14.f - (float) nbBurnerInDefaultRTF[7] ) );
-
-    gblSec.pSec->mcons.cha_cons_chargz1 = min( max( gblSec.pSec->mcons.cha_cons_chargz1, 0.f ), 100.f );
-    gblSec.pSec->mcons.cha_cons_chargz2 = min( max( gblSec.pSec->mcons.cha_cons_chargz2, 0.f ), 100.f );
-    gblSec.pSec->mcons.cha_cons_chargz3 = min( max( gblSec.pSec->mcons.cha_cons_chargz3, 0.f ), 100.f );
-    gblSec.pSec->mcons.cha_cons_chargz4 = min( max( gblSec.pSec->mcons.cha_cons_chargz4, 0.f ), 100.f );
-    gblSec.pSec->mcons.cha_cons_chargz5 = min( max( gblSec.pSec->mcons.cha_cons_chargz5, 0.f ), 100.f );
-    gblSec.pSec->mcons.cha_cons_chargz6 = min( max( gblSec.pSec->mcons.cha_cons_chargz6, 0.f ), 100.f );
-    gblSec.pSec->mcons.cha_cons_chargz7 = min( max( gblSec.pSec->mcons.cha_cons_chargz7, 0.f ), 100.f );
-    gblSec.pSec->mcons.cha_cons_chargz8 = min( max( gblSec.pSec->mcons.cha_cons_chargz8, 0.f ), 100.f );
-
-	  /* RTF tubes temperatures*/
-	  //gblSec.pSec->mcons.cha_cons_tmp_z1 = sps_act_sp_rtf.tmp_tub[0] - 273.f;
-	  //gblSec.pSec->mcons.cha_cons_tmp_z2 = sps_act_sp_rtf.tmp_tub[1] - 273.f;
-	  //gblSec.pSec->mcons.cha_cons_tmp_z3 = sps_act_sp_rtf.tmp_tub[2] - 273.f;
-	  //gblSec.pSec->mcons.cha_cons_tmp_z4 = sps_act_sp_rtf.tmp_tub[3] - 273.f;
-	  //gblSec.pSec->mcons.cha_cons_tmp_z5 = sps_act_sp_rtf.tmp_tub[4] - 273.f;
-	  //gblSec.pSec->mcons.cha_cons_tmp_z6 = sps_act_sp_rtf.tmp_tub[5] - 273.f;
-	  //gblSec.pSec->mcons.cha_cons_tmp_z7 = sps_act_sp_rtf.tmp_tub[6] - 273.f;
-	  //gblSec.pSec->mcons.cha_cons_tmp_z8 = sps_act_sp_rtf.tmp_tub[7] - 273.f;
-    gblSec.pSec->mcons.cha_cons_tmp_z1 = pMOD->pConv->celcius( pGEN->pHvm->phvm->meaSptCal.zonesRTF[0].pSetpoint->zoneTemperature );
-    gblSec.pSec->mcons.cha_cons_tmp_z2 = pMOD->pConv->celcius( pGEN->pHvm->phvm->meaSptCal.zonesRTF[1].pSetpoint->zoneTemperature );
-    gblSec.pSec->mcons.cha_cons_tmp_z3 = pMOD->pConv->celcius( pGEN->pHvm->phvm->meaSptCal.zonesRTF[2].pSetpoint->zoneTemperature );
-    gblSec.pSec->mcons.cha_cons_tmp_z4 = pMOD->pConv->celcius( pGEN->pHvm->phvm->meaSptCal.zonesRTF[3].pSetpoint->zoneTemperature );
-    gblSec.pSec->mcons.cha_cons_tmp_z5 = pMOD->pConv->celcius( pGEN->pHvm->phvm->meaSptCal.zonesRTF[4].pSetpoint->zoneTemperature );
-    gblSec.pSec->mcons.cha_cons_tmp_z6 = pMOD->pConv->celcius( pGEN->pHvm->phvm->meaSptCal.zonesRTF[5].pSetpoint->zoneTemperature );
-    gblSec.pSec->mcons.cha_cons_tmp_z7 = pMOD->pConv->celcius( pGEN->pHvm->phvm->meaSptCal.zonesRTF[6].pSetpoint->zoneTemperature );
-    gblSec.pSec->mcons.cha_cons_tmp_z8 = pMOD->pConv->celcius( pGEN->pHvm->phvm->meaSptCal.zonesRTF[7].pSetpoint->zoneTemperature );
-    
-    gblSec.pSec->mcons.cha_cons_tmp_z1 = min( max( gblSec.pSec->mcons.cha_cons_tmp_z1, 100.f ), 1000.f );
-    gblSec.pSec->mcons.cha_cons_tmp_z2 = min( max( gblSec.pSec->mcons.cha_cons_tmp_z2, 100.f ), 1000.f );
-    gblSec.pSec->mcons.cha_cons_tmp_z3 = min( max( gblSec.pSec->mcons.cha_cons_tmp_z3, 100.f ), 1000.f );
-    gblSec.pSec->mcons.cha_cons_tmp_z4 = min( max( gblSec.pSec->mcons.cha_cons_tmp_z4, 100.f ), 1000.f );
-    gblSec.pSec->mcons.cha_cons_tmp_z5 = min( max( gblSec.pSec->mcons.cha_cons_tmp_z5, 100.f ), 1000.f );
-    gblSec.pSec->mcons.cha_cons_tmp_z6 = min( max( gblSec.pSec->mcons.cha_cons_tmp_z6, 100.f ), 1000.f );
-    gblSec.pSec->mcons.cha_cons_tmp_z7 = min( max( gblSec.pSec->mcons.cha_cons_tmp_z7, 100.f ), 1000.f );
-    gblSec.pSec->mcons.cha_cons_tmp_z8 = min( max( gblSec.pSec->mcons.cha_cons_tmp_z8, 100.f ), 1000.f );
-
-	  /* Soaking zone temperature*/
-	  //gblSec.pSec->mcons.mai_cons_tmp_z = s_spe_mar.s_spt.Tmp_zon_soa - 273.f;
-    gblSec.pSec->mcons.mai_cons_tmp_z = pMOD->pConv->celcius( soakingTemperatureSetpoint );
-
-    gblSec.pSec->mcons.fMaintienChargeZ1 = pGEN->pHvm->phvm->meaSptCal.zonesRTF[8 ].pSetpoint->demandPercentage;
-    gblSec.pSec->mcons.fMaintienChargeZ2 = pGEN->pHvm->phvm->meaSptCal.zonesRTF[9 ].pSetpoint->demandPercentage;
-    gblSec.pSec->mcons.fMaintienChargeZ3 = pGEN->pHvm->phvm->meaSptCal.zonesRTF[10].pSetpoint->demandPercentage;
-    gblSec.pSec->mcons.fMaintienChargeZ4 = pGEN->pHvm->phvm->meaSptCal.zonesRTF[11].pSetpoint->demandPercentage;
-    gblSec.pSec->mcons.fTunnelChargeZ1   = pGEN->pHvm->phvm->meaSptCal.zonesRTF[11].pSetpoint->demandPercentage;
-    gblSec.pSec->mcons.fTunnelChargeZ2   = pGEN->pHvm->phvm->meaSptCal.zonesRTF[11].pSetpoint->demandPercentage;
-    gblSec.pSec->mcons.fTunnelChargeZ3   = pGEN->pHvm->phvm->meaSptCal.zonesRTF[11].pSetpoint->demandPercentage;
-
-    //gblSec.pSec->mcons.mai_cons_tmp_z = min( max( gblSec.pSec->mcons.mai_cons_tmp_z, 0.f ), 100.f );
-
-	  /* Jet validity*/
-	  //gblSec.pSec->mcons.ref_cons_valid = sps_act_sp_cool.jet_valid;
-    gblSec.pSec->mcons.ref_cons_valid = pGEN->pHvm->phvm->meaSptCal.sectionsJET[0].pSetpoint->valid;
-
-	  /* Jet powers*/
-	  //gblSec.pSec->mcons.ref_cons_cha_z1 = sps_act_sp_cool.pow_pct_jet[0];
-	  //gblSec.pSec->mcons.ref_cons_cha_z2 = sps_act_sp_cool.pow_pct_jet[1];
-	  //gblSec.pSec->mcons.ref_cons_cha_z3 = sps_act_sp_cool.pow_pct_jet[2];
-    gblSec.pSec->mcons.ref_cons_cha_z1 = pGEN->pHvm->phvm->meaSptCal.zonesJET[0].pSetpoint->demandPercentage;
-    gblSec.pSec->mcons.ref_cons_cha_z2 = pGEN->pHvm->phvm->meaSptCal.zonesJET[1].pSetpoint->demandPercentage;
-    gblSec.pSec->mcons.ref_cons_cha_z3 = pGEN->pHvm->phvm->meaSptCal.zonesJET[2].pSetpoint->demandPercentage;
-    
-    gblSec.pSec->mcons.ref_cons_cha_z1 = min( max( gblSec.pSec->mcons.ref_cons_cha_z1, 0.f ), 100.f );
-    gblSec.pSec->mcons.ref_cons_cha_z2 = min( max( gblSec.pSec->mcons.ref_cons_cha_z2, 0.f ), 100.f );
-    gblSec.pSec->mcons.ref_cons_cha_z3 = min( max( gblSec.pSec->mcons.ref_cons_cha_z3, 0.f ), 100.f );
-
-	  /* Speed set points validity*/
-	  //gblSec.pSec->mcons.eb_cons_valid = sps_act_sp_rtf.Spd_Valid;
-    gblSec.pSec->mcons.eb_cons_valid = pGEN->pHvm->phvm->meaSptCal.setpoint.line.valid;
-
-	  /* speed set point*/
-	  //gblSec.pSec->mcons.cons_vitcen = sps_act_sp_rtf.spd * 60.f;
-    gblSec.pSec->mcons.cons_vitcen = (float) pMOD->pMath->round( pGEN->pHvm->phvm->meaSptCal.setpoint.line.speed * 60. );
-
-	  /* traction offset*/
-	  //gblSec.pSec->mcons.offset_tract = sps_act_sp_rtf.traction;
-    gblSec.pSec->mcons.offset_tract = tractionOffset;
-
-	  /* start*/
-	  //gblSec.pSec->mcons.demarrage_ok = s_spe_mar.s_spt.demarrage_ok;
-    gblSec.pSec->mcons.demarrage_ok = 1;
-        
-	  /* le modèle est en transitoire */
-	  //gblSec.pSec->mcons.transient_encours = s_coil.s_coil_data[0].trs;
-    gblSec.pSec->mcons.transient_encours = pGEN->pHvm->phvm->meaSptCal.sectionsRTF[0].pCalcul->tracking.weldTime[0] < pGEN->pHvm->phvm->meaSptCal.sectionsRTF[0].pCalcul->anticipationTime;
-                                                                 
-	  /* vitesse maximum sans limitation opérateur de la bobine en cours */
-	  //gblSec.pSec->mcons.Vmax_boballia_enc = min(s_coil.s_coil_data[0].Vmax_boballia, s_coil.s_coil_data[0].spd_max_th) * 60.f;
-    long nuCoilOrdered = pGEN->pHvm->phvm->meaSptCal.sectionsRTF[0].pCalcul->tracking.nu_coilInOrdered;
-    if ( pGEN->pHvm->phvm->coilQueue.pCoilOrdered[nuCoilOrdered] != nullptr )
-    {
-      gblSec.pSec->mcons.Vmax_boballia_enc = min( pGEN->pHvm->phvm->coilQueue.pCoilOrdered[nuCoilOrdered]->data.specific.alliationMaxSpeed, 
-                                                  pGEN->pHvm->phvm->coilQueue.pCoilOrdered[nuCoilOrdered]->calcul.maximumLineSpeed ) * 60.;
-    }
-
-	  /* numéros de bobine en cours */                                                            
-	  //gblSec.pSec->mcons.nobob_enc[0] = '\0';  
-	  //strncpy ( gblSec.pSec->mcons.nobob_enc, s_coil.s_coil_data[0].id, 8 );
-    strcpy_s ( gblSec.pSec->mcons.nobob_enc, "" );
-    if ( pGEN->pHvm->phvm->coilQueue.pCoilOrdered[nuCoilOrdered] != nullptr )
-      strncpy_s( gblSec.pSec->mcons.nobob_enc, pGEN->pHvm->phvm->coilQueue.pCoilOrdered[nuCoilOrdered]->data.entryIdentity, 8 );
-
-	  /* vitesse maximum sans limitation opérateur de la bobine suivante */                      
-	  //gblSec.pSec->mcons.Vmax_boballia_sui = min(s_coil.s_coil_data[1].Vmax_boballia, s_coil.s_coil_data[1].spd_max_th) * 60.f; 
-    long nuCoilOrderedNext = nuCoilOrdered + 1;
-
-	  /* numéros de bobine suivante */                                                            
-	  //gblSec.pSec->mcons.nobob_sui[0] = '\0';
-	  //strncpy(gblSec.pSec->mcons.nobob_sui, s_coil.s_coil_data[1].id, 8);
-
-    if ( pGEN->pHvm->phvm->coilQueue.pCoilOrdered[nuCoilOrderedNext] != nullptr )
-    {
-      gblSec.pSec->mcons.Vmax_boballia_sui = min( pGEN->pHvm->phvm->coilQueue.pCoilOrdered[nuCoilOrderedNext]->data.specific.alliationMaxSpeed, 
-                                                  pGEN->pHvm->phvm->coilQueue.pCoilOrdered[nuCoilOrderedNext]->calcul.maximumLineSpeed ) * 60.;
-      strcpy_s ( gblSec.pSec->mcons.nobob_sui, "" );
-      strncpy_s( gblSec.pSec->mcons.nobob_sui, pGEN->pHvm->phvm->coilQueue.pCoilOrdered[nuCoilOrderedNext]->data.entryIdentity, 8 );
-    }
-
-    // Life bit.
-    if ( ++gblSec.pSec->mcons.iLifeCounter > 10000 ) gblSec.pSec->mcons.iLifeCounter = 0;
-
-	  // Release access to global section.
-	  gblSec.unLockAccess();
+    struct MOD_HV_setpoints *   pSetpoint = ( struct MOD_HV_setpoints * ) pSetpoints;
+    pSetpoint->nb_messageToSendBack                 = 1;
+    pSetpoint->messageIdToSendBack[0]               = 5103;
+    pSetpoint->stageSimulationResults.lScenarioID   = this->lScenarioIDCurrent;
   }
+  else if ( lType == TYPE_MSG_SETPOINT )
+  {
+    struct MOD_HV_setpoints *   pSetpoint = ( struct MOD_HV_setpoints * ) pSetpoints;
+
+
+    // Store specific consumption.
+    this->specificConsumption[0] = pSetpoint->sectionsNOF[0].specificConsumption;
+    this->specificConsumption[1] = pSetpoint->sectionsRTF[0].specificConsumption;
+    this->efficiency         [0] = pSetpoint->sectionsNOF[0].efficiency;
+    this->efficiency         [1] = pSetpoint->sectionsRTF[0].efficiency;
+  }
+	//// Release access to global section.
+	//gblSec.unLockAccess();
+
+  
 
   bool tototoott = true;
 
